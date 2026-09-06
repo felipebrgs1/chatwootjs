@@ -41,15 +41,21 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* ---- ChatwootJS Woot theme (paridade visual com o Chatwoot v4) ---- */
+/* ---- ChatwootJS Woot theme (paridade visual com o Chatwoot v4) ----
+   Valores espelham chatwoot/app/javascript/dashboard/assets/scss/_next-colors.scss */
 :root {
-  --woot-blue: #1f93ff;
+  --woot-blue: #2781f6; /* blue-9 */
   --woot-rail: #1f2937;
-  --woot-bg: #f9fafb;
-  --woot-note: #fef3c7;
-  --woot-nav-active-bg: #e8f3ff;
-  --woot-bubble-in: #eceef1;
-  --woot-bubble-out: #d9ebff;
+  --woot-bg: #f9f9fb; /* slate-2 */
+  --woot-note: #ffefc2; /* amber-3 (bubble de nota privada) */
+  --woot-nav-active-bg: #e9f3ff; /* blue-3 */
+  --woot-bubble-in: #e8e8ec; /* slate-4 */
+  --woot-bubble-out: #daecff; /* solid-blue */
+  --woot-activity: rgba(215, 215, 215, 0.22); /* alpha-1 */
+  --woot-slate-3: #f0f0f3;
+  --woot-slate-10: #80838d;
+  --woot-slate-11: #60646c;
+  --woot-slate-12: #1c2024;
 }
 
 .dark {
@@ -135,6 +141,11 @@
   --color-woot-nav-active-bg: var(--woot-nav-active-bg);
   --color-woot-bubble-in: var(--woot-bubble-in);
   --color-woot-bubble-out: var(--woot-bubble-out);
+  --color-woot-activity: var(--woot-activity);
+  --color-woot-slate-3: var(--woot-slate-3);
+  --color-woot-slate-10: var(--woot-slate-10);
+  --color-woot-slate-11: var(--woot-slate-11);
+  --color-woot-slate-12: var(--woot-slate-12);
 }
 
 @layer base {

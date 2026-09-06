@@ -65,42 +65,42 @@ interface NavGroup {
 }
 
 const NAV: NavGroup[] = [
-  { label: "My Inbox", icon: Inbox, to: "/app" },
+  { label: "Minha Inbox", icon: Inbox, to: "/app" },
   {
-    label: "Conversations",
+    label: "Conversas",
     icon: MessageSquare,
     to: "/app",
     defaultOpen: true,
     children: [
-      { label: "All Conversations", to: "/app", icon: Inbox },
-      { label: "Mentions", icon: AtSign, soon: true },
-      { label: "Unattended", icon: Clock, soon: true },
+      { label: "Todas as conversas", to: "/app", icon: Inbox },
+      { label: "Menções", icon: AtSign, soon: true },
+      { label: "Sem atendimento", icon: Clock, soon: true },
     ],
   },
-  { label: "Folders", icon: Folder, children: [] },
-  { label: "Teams", icon: Users, children: [] },
+  { label: "Pastas", icon: Folder, children: [] },
+  { label: "Times", icon: Users, children: [] },
   {
-    label: "Channels",
+    label: "Canais",
     icon: Layers,
     children: [{ label: "Inboxes", to: "/app/settings/inboxes", icon: Layers }],
   },
   {
-    label: "Labels",
+    label: "Etiquetas",
     icon: Tag,
-    children: [{ label: "Todas as labels", to: "/app/settings/labels", icon: Tag }],
+    children: [{ label: "Todas as etiquetas", to: "/app/settings/labels", icon: Tag }],
   },
   {
-    label: "Contacts",
+    label: "Contatos",
     icon: Contact,
-    children: [{ label: "All Contacts", to: "/app/contacts", icon: Contact }],
+    children: [{ label: "Todos os contatos", to: "/app/contacts", icon: Contact }],
   },
   {
-    label: "Reports",
+    label: "Relatórios",
     icon: BarChart3,
-    children: [{ label: "Overview", to: "/app/reports", icon: BarChart3 }],
+    children: [{ label: "Visão geral", to: "/app/reports", icon: BarChart3 }],
   },
   {
-    label: "Campaigns",
+    label: "Campanhas",
     icon: Megaphone,
     children: [
       {
@@ -113,25 +113,25 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Help Center",
+    label: "Central de Ajuda",
     icon: BookOpen,
-    children: [{ label: "All Articles", to: "/app/helpcenter", icon: BookOpen }],
+    children: [{ label: "Todos os artigos", to: "/app/helpcenter", icon: BookOpen }],
   },
   {
-    label: "Settings",
+    label: "Configurações",
     icon: Settings,
     defaultOpen: true,
     children: [
-      { label: "General", to: "/app/settings/general", icon: Settings },
-      { label: "Agents", to: "/app/settings/agents", icon: Users },
+      { label: "Geral", to: "/app/settings/general", icon: Settings },
+      { label: "Agentes", to: "/app/settings/agents", icon: Users },
       { label: "Inboxes", to: "/app/settings/inboxes", icon: Layers },
-      { label: "Labels", to: "/app/settings/labels", icon: Tag },
+      { label: "Etiquetas", to: "/app/settings/labels", icon: Tag },
       { label: "Times", to: "/app/settings/teams", icon: Users },
       { label: "Respostas prontas", to: "/app/settings/canned", icon: MessageSquare },
       { label: "Macros", to: "/app/settings/macros", icon: Zap },
       { label: "Automações", to: "/app/settings/automations", icon: Workflow },
       { label: "Webhooks", to: "/app/settings/webhooks", icon: Webhook },
-      { label: "Atributos custom", to: "/app/settings/custom-attributes", icon: PenLine },
+      { label: "Atributos customizados", to: "/app/settings/custom-attributes", icon: PenLine },
     ],
   },
 ];

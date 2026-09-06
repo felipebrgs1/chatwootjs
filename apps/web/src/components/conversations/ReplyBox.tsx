@@ -1,7 +1,22 @@
-import { ImagePlus, Mic, SendHorizontal, Square, StickyNote } from "lucide-react";
+import {
+  Bold,
+  ChevronLeftSquare,
+  ChevronRightSquare,
+  Code2,
+  ImagePlus,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Maximize2,
+  Mic,
+  Quote,
+  SendHorizontal,
+  Square,
+  StickyNote,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "@chatwootjs/ui/components/button";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import { ApiError } from "@/lib/auth";
@@ -11,9 +26,22 @@ import type { Message } from "@/lib/conversations";
 
 const QUICK_EMOJI = ["😀", "👍", "❤️", "🙏", "😅", "🎉"] as const;
 
+/* Ícones do toolbar de formatação (editor rico chega no M12). */
+const TOOLBAR = [
+  Bold,
+  Italic,
+  Link2,
+  Quote,
+  ChevronLeftSquare,
+  ChevronRightSquare,
+  List,
+  ListOrdered,
+  Code2,
+] as const;
+
 /**
- * ReplyBox: tabs Responder/Nota privada, envio otimista, anexos, ditado de
- * áudio (MediaRecorder → upload) e indicador de digitação.
+ * ReplyBox estilo Chatwoot v4: pills Responder/Nota privada, área aberta de
+ * texto, hint de canned response com `/`, anexos, ditado e envio otimista.
  */
 export function ReplyBox({
   accountId,
@@ -45,11 +73,11 @@ export function ReplyBox({
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const echoRef = useRef(0);
 
-  // autocomplete `//atalho`: busca no server com debounce e insere o conteúdo
+  // autocomplete `/atalho`: busca no server com debounce e insere o conteúdo
   function handleChange(value: string): void {
     setText(value);
     handleTyping();
-    const match = /(?:^|\s)\/\/(\S*)$/.exec(value);
+    const match = /(?:^|\s)\/(\S*)$/.exec(value);
     if (cannedTimer.current) clearTimeout(cannedTimer.current);
     if (!match) {
       setCannedOpen(false);
@@ -67,7 +95,7 @@ export function ReplyBox({
 
   function applyCanned(item: CannedResponse): void {
     setText((prev) =>
-      prev.replace(/(?:^|\s)\/\/\S*$/, item.content ? ` ${item.content}` : "").trimStart(),
+      prev.replace(/(?:^|\s)\/\S*$/, item.content ? ` ${item.content}` : "").trimStart(),
     );
     setCannedOpen(false);
   }
@@ -160,43 +188,47 @@ export function ReplyBox({
   }
 
   return (
-    <footer className="flex-shrink-0 border-t border-border bg-background px-3 pb-3 pt-2">
-      <div className="mb-2 flex gap-1">
-        {(
-          [
-            { value: "reply", label: "Responder" },
-            { value: "private", label: "Nota privada" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => setTab(t.value)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors",
-              tab === t.value
-                ? t.value === "private"
-                  ? "bg-amber-100 font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                  : "bg-woot-nav-active-bg font-medium text-woot-blue"
-                : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            {t.value === "private" && <StickyNote className="size-3.5" />}
-            {t.label}
-          </button>
-        ))}
-        <span className="ml-auto hidden self-center text-[11px] text-muted-foreground sm:block">
-          // respostas prontas · Enter envia
-        </span>
+    <footer className="flex-shrink-0 border-t border-border bg-background px-3 pb-3 pt-2.5">
+      {/* Pills Responder / Nota privada + expandir */}
+      <div className="mb-1.5 flex items-center gap-2">
+        <div className="flex rounded-full border border-border p-0.5">
+          {(
+            [
+              { value: "reply", label: "Responder" },
+              { value: "private", label: "Nota privada" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setTab(t.value)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors",
+                tab === t.value
+                  ? t.value === "private"
+                    ? "bg-woot-note font-medium text-amber-900"
+                    : "bg-white font-medium text-woot-slate-12 shadow-sm"
+                  : "text-woot-slate-11 hover:text-woot-slate-12",
+              )}
+            >
+              {t.value === "private" && <StickyNote className="size-3.5" />}
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          title="Expandir — chega no M12"
+          className="ml-auto grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
+        >
+          <Maximize2 className="size-3.5" />
+        </button>
       </div>
-      <div
-        className={cn(
-          "rounded-xl border border-input bg-background focus-within:border-woot-blue",
-          tab === "private" && "border-amber-300 bg-amber-50/50 dark:border-amber-800",
-        )}
-      >
+
+      {/* Editor aberto */}
+      <div className="relative">
         {cannedOpen && canned.length > 0 && (
-          <ul className="max-h-44 overflow-y-auto border-b border-input p-1">
+          <ul className="absolute bottom-full left-0 z-10 mb-1 max-h-44 w-80 overflow-y-auto rounded-lg border bg-background p-1 shadow-lg">
             {canned.map((item) => (
               <li key={item.id}>
                 <button
@@ -204,10 +236,10 @@ export function ReplyBox({
                   onClick={() => applyCanned(item)}
                   className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-start hover:bg-muted"
                 >
-                  <code className="flex-shrink-0 rounded bg-muted px-1 text-[11px] text-woot-blue">
-                    //{item.short_code}
+                  <code className="flex-shrink-0 rounded bg-woot-slate-3 px-1 text-[11px] text-woot-blue">
+                    /{item.short_code}
                   </code>
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate text-xs text-woot-slate-11">
                     {item.content}
                   </span>
                 </button>
@@ -225,77 +257,104 @@ export function ReplyBox({
             }
           }}
           rows={2}
-          placeholder={tab === "private" ? "Nota visível só para a equipe..." : "Responder..."}
-          className="w-full resize-none bg-transparent px-3 pt-2 text-sm outline-none placeholder:text-muted-foreground"
+          placeholder={tab === "private" ? "Nota visível só para a equipe..." : ""}
+          className="w-full resize-none bg-transparent px-1 py-1 text-sm text-woot-slate-12 outline-none placeholder:text-woot-slate-10"
         />
-        <div className="flex items-center gap-0.5 px-2 pb-1.5">
-          <button
-            type="button"
-            title="Anexar"
-            onClick={() => fileRef.current?.click()}
-            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <ImagePlus className="size-4" />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void attach(file);
-              e.target.value = "";
-            }}
-          />
-          <div className="relative">
+      </div>
+
+      {/* Toolbar de formatação (decorativa até o M12) */}
+      {tab === "reply" && (
+        <div className="flex items-center gap-0.5 pb-1">
+          {TOOLBAR.map((Icon, i) => (
             <button
+              key={i}
               type="button"
-              title="Emoji"
-              onClick={() => setShowEmoji((v) => !v)}
-              className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Editor rico chega no M12"
+              disabled
+              className="grid size-7 place-content-center rounded-lg text-woot-slate-11 disabled:opacity-50"
             >
-              😀
+              <Icon className="size-4" />
             </button>
-            {showEmoji && (
-              <div className="absolute bottom-9 left-0 z-10 flex gap-1 rounded-lg border bg-background p-1.5 shadow-lg">
-                {QUICK_EMOJI.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => {
-                      setText((t) => t + emoji);
-                      setShowEmoji(false);
-                    }}
-                    className="rounded p-1 text-lg hover:bg-muted"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          ))}
+        </div>
+      )}
+
+      {/* Hint de canned response */}
+      {tab === "reply" && (
+        <p className="pb-1.5 text-sm text-woot-slate-10">
+          Shift + enter para nova linha. Comece com <code>'/'</code> para escolher uma Resposta
+          Pronta.
+        </p>
+      )}
+
+      {/* Rodapé: emoji, anexo, áudio + enviar */}
+      <div className="flex items-center gap-1">
+        <div className="relative">
           <button
             type="button"
-            title={recording ? "Parar gravação" : "Gravar áudio"}
-            onClick={() => void toggleRecording()}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-lg hover:bg-muted",
-              recording ? "text-red-600" : "text-muted-foreground hover:text-foreground",
-            )}
+            title="Emoji"
+            onClick={() => setShowEmoji((v) => !v)}
+            className="flex size-8 items-center justify-center rounded-lg text-woot-slate-11 hover:bg-muted hover:text-woot-slate-12"
           >
-            {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
+            😀
           </button>
-          {recording && <span className="text-xs text-red-600">gravando...</span>}
-          <Button
-            size="sm"
-            onClick={() => void send()}
-            disabled={!text.trim() || sending}
-            className="ml-auto gap-1.5"
-          >
-            <SendHorizontal className="size-3.5" />
-            Enviar
-          </Button>
+          {showEmoji && (
+            <div className="absolute bottom-9 left-0 z-10 flex gap-1 rounded-lg border bg-background p-1.5 shadow-lg">
+              {QUICK_EMOJI.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    setText((t) => t + emoji);
+                    setShowEmoji(false);
+                  }}
+                  className="rounded p-1 text-lg hover:bg-muted"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+        <button
+          type="button"
+          title="Anexar"
+          onClick={() => fileRef.current?.click()}
+          className="flex size-8 items-center justify-center rounded-lg text-woot-slate-11 hover:bg-muted hover:text-woot-slate-12"
+        >
+          <ImagePlus className="size-4" />
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void attach(file);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          title={recording ? "Parar gravação" : "Gravar áudio"}
+          onClick={() => void toggleRecording()}
+          className={cn(
+            "flex size-8 items-center justify-center rounded-lg hover:bg-muted",
+            recording ? "text-red-600" : "text-woot-slate-11 hover:text-woot-slate-12",
+          )}
+        >
+          {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
+        </button>
+        {recording && <span className="text-xs text-red-600">gravando...</span>}
+        <button
+          type="button"
+          onClick={() => void send()}
+          disabled={!text.trim() || sending}
+          className="ml-auto flex items-center gap-1.5 rounded-lg bg-woot-blue px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-40"
+        >
+          <SendHorizontal className="size-3.5" />
+          {tab === "private" ? "Enviar nota" : "Enviar (⏎)"}
+        </button>
       </div>
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </footer>

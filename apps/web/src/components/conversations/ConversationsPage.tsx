@@ -19,7 +19,6 @@ import {
   type ConversationItem,
   type Message,
 } from "@/lib/conversations";
-import { setConversationTeam } from "@/lib/automation";
 import { ConversationHeader } from "./ConversationHeader";
 import { ConversationList, type StatusChip } from "./ConversationList";
 import { DetailsPanel } from "./DetailsPanel";
@@ -133,10 +132,9 @@ export function ConversationsPage({
         mineCount={counts.mine}
         unassignedCount={counts.unassigned}
         allCount={counts.all}
-        query={filters.query}
         onStatus={(status) => onFilters({ ...filters, status })}
         onAssignee={(assignee) => onFilters({ ...filters, assignee })}
-        onQuery={(query) => onFilters({ ...filters, query })}
+        accountLabels={labels}
       />
       {selectedId === null ? (
         <div className="flex flex-1 items-center justify-center bg-woot-bg">
@@ -268,11 +266,6 @@ function ConversationDetailView({
           conversation={conversation}
           onStatus={(status) =>
             void toggleStatus(accountId, conversation.id, status)
-              .then(setConversation)
-              .then(() => onListChanged())
-          }
-          onTeam={(teamId) =>
-            void setConversationTeam(accountId, conversation.id, teamId)
               .then(setConversation)
               .then(() => onListChanged())
           }

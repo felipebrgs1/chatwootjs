@@ -1,4 +1,4 @@
-import { FileText, Trash2 } from "lucide-react";
+import { Check, CheckCheck, FileText, Lock } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
@@ -19,6 +19,8 @@ function formatTime(epoch: number): string {
   return new Date(epoch * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** Thread estilo Chatwoot v4: bolhas cinza (recebida) e azul (enviada),
+ * pills de atividade centradas e notas privadas âmbar. */
 export function Thread({
   conversation,
   messages,
@@ -37,79 +39,53 @@ export function Thread({
   }, [messages?.length]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-woot-bg px-4 py-3">
+    <div className="min-h-0 flex-1 overflow-y-auto bg-background px-3 py-4">
       {messages === null && (
-        <p className="py-8 text-center text-sm text-muted-foreground">Carregando mensagens...</p>
+        <p className="py-8 text-center text-sm text-woot-slate-11">Carregando mensagens...</p>
       )}
-      {(messages ?? []).map((message) => {
-        if (message.message_type === "activity") {
+      {(messages ?? []).map((message, index) => {
+        if (message.message_type === "activity" || message.message_type === "template") {
           return (
-            <p
-              key={message.id}
-              className="mx-auto my-1.5 max-w-md rounded-full bg-muted px-3 py-1 text-center text-xs text-muted-foreground"
-            >
-              {message.content}
-            </p>
+            <div key={message.id} className="flex justify-center">
+              <p
+                title={message.content ?? ""}
+                className="my-1 max-w-md rounded-lg bg-woot-activity px-3 py-1.5 text-center text-sm text-woot-slate-11"
+              >
+                {message.content}
+              </p>
+            </div>
           );
         }
+        const incoming = message.message_type === "incoming";
+        const previous = (messages ?? [])[index - 1];
+        const groupStart =
+          !previous ||
+          previous.message_type === "activity" ||
+          previous.message_type === "template" ||
+          previous.message_type !== message.message_type ||
+          previous.private !== message.private;
         if (message.private) {
           return <PrivateNote key={message.id} message={message} onDelete={onDelete} />;
         }
-        const incoming = message.message_type === "incoming";
         return (
-          <div
+          <MessageBubble
             key={message.id}
-            className={cn("my-1 flex max-w-[75%]", incoming ? "self-start" : "self-end")}
-          >
-            {incoming && (
-              <WootAvatar
-                name={message.sender?.name ?? conversation.meta.sender.name}
-                size="sm"
-                className="mr-2 mt-0.5 flex-shrink-0"
-              />
-            )}
-            <div
-              className={cn(
-                "min-w-0 rounded-xl px-3 py-2 text-sm shadow-sm",
-                incoming
-                  ? "rounded-tl-sm bg-white text-foreground"
-                  : "rounded-tr-sm bg-woot-blue text-white",
-              )}
-            >
-              {message.content_attributes?.in_reply_to ? (
-                <ReplyQuote
-                  messageId={Number(message.content_attributes.in_reply_to)}
-                  messages={messages ?? []}
-                  incoming={incoming}
-                />
-              ) : null}
-              {message.content && (
-                <p className="whitespace-pre-wrap break-words">{message.content}</p>
-              )}
-              {message.attachments.map((att) => (
-                <AttachmentView key={att.id} attachment={att} incoming={incoming} />
-              ))}
-              <p
-                className={cn(
-                  "mt-1 text-right text-[10px]",
-                  incoming ? "text-muted-foreground" : "text-white/80",
-                )}
-              >
-                {message.sender?.name ? `${message.sender.name} · ` : ""}
-                {formatTime(message.created_at)}
-              </p>
-            </div>
-          </div>
+            message={message}
+            conversation={conversation}
+            incoming={incoming}
+            groupStart={groupStart}
+            messages={messages ?? []}
+          />
         );
       })}
       {typing && (
-        <div className="my-1 flex max-w-[75%] self-start">
-          <div className="rounded-xl rounded-tl-sm bg-white px-3 py-2 text-sm shadow-sm">
+        <div className="flex justify-start">
+          <div className="mt-2 rounded-xl rounded-bl-sm bg-woot-bubble-in px-3 py-2.5">
             <span className="flex gap-1">
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
-                  className="size-1.5 animate-bounce rounded-full bg-muted-foreground"
+                  className="size-1.5 animate-bounce rounded-full bg-woot-slate-11"
                   style={{ animationDelay: `${i * 150}ms` }}
                 />
               ))}
@@ -122,58 +98,105 @@ export function Thread({
   );
 }
 
-function PrivateNote({ message, onDelete }: { message: Message; onDelete: (id: number) => void }) {
+function MessageBubble({
+  message,
+  conversation,
+  incoming,
+  groupStart,
+  messages,
+}: {
+  message: Message;
+  conversation: ConversationDetail;
+  incoming: boolean;
+  groupStart: boolean;
+  messages: Message[];
+}) {
   return (
-    <div className="my-1.5 self-stretch rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950">
-      <p className="mb-1 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
-        Nota privada · {message.sender?.name ?? ""}
-        <button
-          type="button"
-          aria-label="Apagar nota"
-          className="ml-auto text-amber-600 hover:text-amber-800"
-          onClick={() => onDelete(message.id)}
+    <div className={cn("flex min-w-0 items-end gap-2", incoming ? "justify-start" : "justify-end")}>
+      {incoming && (
+        <span className={cn("flex-shrink-0", !groupStart && "invisible")}>
+          <WootAvatar name={message.sender?.name ?? conversation.meta.sender.name} size="sm" />
+        </span>
+      )}
+      <div
+        className={cn("flex min-w-0 max-w-[75%] flex-col", incoming ? "items-start" : "items-end")}
+      >
+        <div
+          className={cn(
+            "min-w-0",
+            incoming
+              ? "rounded-xl rounded-bl-sm bg-woot-bubble-in px-3 py-2"
+              : "rounded-xl rounded-br-sm bg-woot-bubble-out px-3 py-2",
+          )}
         >
-          <Trash2 className="size-3.5" />
-        </button>
-      </p>
-      <p className="whitespace-pre-wrap break-words">{message.content}</p>
-      <p className="mt-1 text-right text-[10px] text-amber-700/70">
-        {formatTime(message.created_at)}
-      </p>
+          {message.content_attributes?.in_reply_to ? (
+            <ReplyQuote
+              messageId={Number(message.content_attributes.in_reply_to)}
+              messages={messages}
+            />
+          ) : null}
+          {message.content && (
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-woot-slate-12">
+              {message.content}
+            </p>
+          )}
+          {message.attachments.map((att) => (
+            <AttachmentView key={att.id} attachment={att} />
+          ))}
+        </div>
+        <p className="mt-1 flex items-center gap-1 px-1 text-xxs text-woot-slate-11">
+          {message.status === "failed" && <span className="text-red-600">Falhou</span>}
+          {message.status === "sent" && !incoming && <Check className="size-3" />}
+          {message.status === "delivered" && !incoming && <CheckCheck className="size-3" />}
+          {message.status === "read" && !incoming && (
+            <CheckCheck className="size-3 text-woot-blue" />
+          )}
+          <span>{formatTime(message.created_at)}</span>
+        </p>
+      </div>
     </div>
   );
 }
 
-function ReplyQuote({
-  messageId,
-  messages,
-  incoming,
-}: {
-  messageId: number;
-  messages: Message[];
-  incoming: boolean;
-}) {
+function PrivateNote({ message, onDelete }: { message: Message; onDelete: (id: number) => void }) {
+  return (
+    <div className="flex justify-end">
+      <div className="my-1.5 max-w-[75%] rounded-xl rounded-br-sm border border-amber-300/60 bg-woot-note px-3 py-2">
+        <p className="mb-0.5 flex items-center gap-1 text-xxs font-medium uppercase tracking-wide text-amber-800">
+          <Lock className="size-3" />
+          {message.sender?.name ?? "Nota privada"}
+          <button
+            type="button"
+            aria-label="Apagar nota"
+            className="ml-auto text-amber-700 hover:text-amber-900"
+            onClick={() => onDelete(message.id)}
+          >
+            ×
+          </button>
+        </p>
+        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-woot-slate-12">
+          {message.content}
+        </p>
+        <p className="mt-1 flex items-center justify-end gap-1 text-xxs text-amber-800/70">
+          <Lock className="size-3" />
+          {formatTime(message.created_at)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ReplyQuote({ messageId, messages }: { messageId: number; messages: Message[] }) {
   const quoted = messages.find((m) => m.id === messageId);
   if (!quoted?.content) return null;
   return (
-    <blockquote
-      className={cn(
-        "mb-1.5 truncate border-l-2 pl-2 text-xs",
-        incoming ? "border-woot-blue text-muted-foreground" : "border-white/60 text-white/85",
-      )}
-    >
+    <blockquote className="mb-1.5 truncate border-l-2 border-woot-blue pl-2 text-xs text-woot-slate-11">
       {quoted.content}
     </blockquote>
   );
 }
 
-export function AttachmentView({
-  attachment,
-  incoming,
-}: {
-  attachment: Message["attachments"][number];
-  incoming: boolean;
-}) {
+export function AttachmentView({ attachment }: { attachment: Message["attachments"][number] }) {
   const url = attachmentUrl(attachment.external_url);
   if (!url) return null;
   const title = attachment.fallback_title ?? "anexo";
@@ -195,10 +218,7 @@ export function AttachmentView({
       href={url}
       target="_blank"
       rel="noreferrer"
-      className={cn(
-        "mt-1.5 flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs",
-        incoming ? "bg-muted text-foreground" : "bg-white/20 text-white",
-      )}
+      className="mt-1.5 flex items-center gap-2 rounded-lg bg-white/60 px-2 py-1.5 text-xs text-woot-slate-12"
     >
       <FileText className="size-4 flex-shrink-0" />
       <span className="truncate">{title}</span>

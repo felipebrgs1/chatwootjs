@@ -104,7 +104,7 @@ function NewInbox() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="flex items-center gap-3 border-b bg-white px-6 py-4">
+      <header className="flex items-center gap-3 border-b bg-card px-6 py-4">
         <Link to="/app/settings/inboxes">
           <Button variant="ghost" size="icon" aria-label="Voltar">
             <ArrowLeft className="size-4" />
@@ -124,7 +124,7 @@ function NewInbox() {
               key={channel.kind}
               type="button"
               onClick={() => pick(channel.kind)}
-              className="flex items-center gap-3 rounded-lg border bg-white p-4 text-start transition-colors hover:border-woot-blue"
+              className="flex items-center gap-3 rounded-lg border bg-card p-4 text-start transition-colors hover:border-woot-blue"
             >
               <span className="grid size-9 flex-shrink-0 place-content-center rounded-lg bg-woot-nav-active-bg text-woot-blue font-semibold">
                 {channel.label[0]}
@@ -138,7 +138,7 @@ function NewInbox() {
         {kind && (
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-3 rounded-lg border bg-white p-4"
+            className="grid gap-3 rounded-lg border bg-card p-4"
           >
             <div className="grid gap-1.5">
               <Label htmlFor="name">Nome da inbox</Label>

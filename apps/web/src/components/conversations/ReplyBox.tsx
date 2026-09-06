@@ -1,7 +1,5 @@
 import {
   Bold,
-  ChevronLeftSquare,
-  ChevronRightSquare,
   Code2,
   ImagePlus,
   Italic,
@@ -10,6 +8,7 @@ import {
   ListOrdered,
   Maximize2,
   Mic,
+  Minimize2,
   Quote,
   SendHorizontal,
   Square,
@@ -26,18 +25,61 @@ import type { Message } from "@/lib/conversations";
 
 const QUICK_EMOJI = ["😀", "👍", "❤️", "🙏", "😅", "🎉"] as const;
 
-/* Ícones do toolbar de formatação (editor rico chega no M12). */
-const TOOLBAR = [
-  Bold,
-  Italic,
-  Link2,
-  Quote,
-  ChevronLeftSquare,
-  ChevronRightSquare,
-  List,
-  ListOrdered,
-  Code2,
-] as const;
+type ToolbarAction = "bold" | "italic" | "link" | "quote" | "code" | "ul" | "ol";
+
+/**
+ * Shift+Enter inteligente, função pura (paridade com o WootWriter): dentro de
+ * lista ou citação, continua o marcador na nova linha (`- `, `2. `, `> `);
+ * numa linha com só o marcador, sai da lista. Retorna null fora de lista.
+ */
+export function computeListContinuation(
+  value: string,
+  caret: number,
+  selectionEnd: number,
+): { text: string; caret: number } | null {
+  if (caret !== selectionEnd) return null;
+  const lineStart = value.lastIndexOf("\n", caret - 1) + 1;
+  const line = value.slice(lineStart, caret);
+
+  const bullet = /^(\s*[-*•]\s+)(.*)$/.exec(line);
+  const ordered = /^(\s*)(\d+)([.)]\s+)(.*)$/.exec(line);
+  const quote = /^(\s*>+\s?)(.*)$/.exec(line);
+  if (!bullet && !ordered && !quote) return null;
+
+  if (ordered) {
+    const [, indent, num, delimiter, rest] = ordered;
+    // marcador vazio: sai da lista
+    if (!rest.trim())
+      return { text: value.slice(0, lineStart) + value.slice(caret), caret: lineStart };
+    const insert = `\n${indent}${Number(num) + 1}${delimiter}`;
+    return {
+      text: value.slice(0, caret) + insert + value.slice(caret),
+      caret: caret + insert.length,
+    };
+  }
+  const [, marker, rest] = (bullet ?? quote) as RegExpExecArray;
+  if (!rest.trim())
+    return { text: value.slice(0, lineStart) + value.slice(caret), caret: lineStart };
+  const insert = `\n${marker}`;
+  return {
+    text: value.slice(0, caret) + insert + value.slice(caret),
+    caret: caret + insert.length,
+  };
+}
+
+const TOOLBAR_ACTIONS: ReadonlyArray<{
+  icon: typeof Bold;
+  label: string;
+  action: ToolbarAction;
+}> = [
+  { icon: Bold, label: "Negrito", action: "bold" },
+  { icon: Italic, label: "Itálico", action: "italic" },
+  { icon: Link2, label: "Link", action: "link" },
+  { icon: Quote, label: "Citação", action: "quote" },
+  { icon: Code2, label: "Código", action: "code" },
+  { icon: List, label: "Lista", action: "ul" },
+  { icon: ListOrdered, label: "Lista numerada", action: "ol" },
+];
 
 /**
  * ReplyBox estilo Chatwoot v4: pills Responder/Nota privada, área aberta de
@@ -66,7 +108,10 @@ export function ReplyBox({
   const [showEmoji, setShowEmoji] = useState(false);
   const [canned, setCanned] = useState<CannedResponse[]>([]);
   const [cannedOpen, setCannedOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const cannedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const caretRaf = useRef<number | null>(null);
+  const areaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -75,6 +120,11 @@ export function ReplyBox({
 
   // autocomplete `/atalho`: busca no server com debounce e insere o conteúdo
   function handleChange(value: string): void {
+    // Digitação real cancela restauração de cursor pendente de edição sintética.
+    if (caretRaf.current !== null) {
+      cancelAnimationFrame(caretRaf.current);
+      caretRaf.current = null;
+    }
     setText(value);
     handleTyping();
     const match = /(?:^|\s)\/(\S*)$/.exec(value);
@@ -91,6 +141,92 @@ export function ReplyBox({
         })
         .catch(() => {});
     }, 200);
+  }
+
+  /** Envolve a seleção com marcadores markdown (negrito, itálico, código). */
+  function wrapSelection(before: string, after: string = before): void {
+    const el = areaRef.current;
+    if (!el) return;
+    const { selectionStart: start, selectionEnd: end, value } = el;
+    const selected = value.slice(start, end) || "texto";
+    handleChange(`${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + before.length, start + before.length + selected.length);
+    });
+  }
+
+  /** Prefixa cada linha da seleção (citação, listas) — paridade com o WootWriter. */
+  function prefixLines(prefix: string | ((index: number) => string)): void {
+    const el = areaRef.current;
+    if (!el) return;
+    const { selectionStart: start, selectionEnd: end, value } = el;
+    const blockStart = value.lastIndexOf("\n", start - 1) + 1;
+    const rawEnd = end < value.length ? value.indexOf("\n", end) : value.length;
+    const blockEnd = rawEnd === -1 ? value.length : rawEnd;
+    const body = value.slice(blockStart, blockEnd) || "item";
+    const prefixed = body
+      .split("\n")
+      .map((line, i) => {
+        const tag = typeof prefix === "function" ? prefix(i) : prefix;
+        return line.trim() ? `${tag}${line}` : line;
+      })
+      .join("\n");
+    handleChange(`${value.slice(0, blockStart)}${prefixed}${value.slice(blockEnd)}`);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(blockStart, blockStart + prefixed.length);
+    });
+  }
+
+  function insertLink(): void {
+    const el = areaRef.current;
+    if (!el) return;
+    const { selectionStart: start, selectionEnd: end, value } = el;
+    const selected = value.slice(start, end).trim();
+    if (/^https?:\/\/\S+$/i.test(selected)) {
+      const next = `${value.slice(0, start)}[link](${selected})${value.slice(end)}`;
+      handleChange(next);
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + 1, start + 5);
+      });
+      return;
+    }
+    const label = selected || "texto";
+    const next = `${value.slice(0, start)}[${label}](url)${value.slice(end)}`;
+    handleChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const urlStart = start + label.length + 3;
+      el.setSelectionRange(urlStart, urlStart + 3);
+    });
+  }
+
+  function runToolbar(action: ToolbarAction): void {
+    switch (action) {
+      case "bold":
+        wrapSelection("**");
+        break;
+      case "italic":
+        wrapSelection("*");
+        break;
+      case "link":
+        insertLink();
+        break;
+      case "quote":
+        prefixLines("> ");
+        break;
+      case "code":
+        wrapSelection("`");
+        break;
+      case "ul":
+        prefixLines("- ");
+        break;
+      case "ol":
+        prefixLines((i) => `${i + 1}. `);
+        break;
+    }
   }
 
   function applyCanned(item: CannedResponse): void {
@@ -111,6 +247,7 @@ export function ReplyBox({
     return () => {
       if (typingTimer.current) clearTimeout(typingTimer.current);
       if (cannedTimer.current) clearTimeout(cannedTimer.current);
+      if (caretRaf.current !== null) cancelAnimationFrame(caretRaf.current);
       sendTyping(accountId, conversationId, false);
     };
   }, [accountId, conversationId]);
@@ -206,8 +343,8 @@ export function ReplyBox({
                 "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors",
                 tab === t.value
                   ? t.value === "private"
-                    ? "bg-woot-note font-medium text-amber-900"
-                    : "bg-white font-medium text-woot-slate-12 shadow-sm"
+                    ? "bg-woot-note font-medium text-amber-900 dark:text-amber-100"
+                    : "bg-card font-medium text-woot-slate-12 shadow-sm dark:bg-woot-slate-3"
                   : "text-woot-slate-11 hover:text-woot-slate-12",
               )}
             >
@@ -218,10 +355,12 @@ export function ReplyBox({
         </div>
         <button
           type="button"
-          title="Expandir — chega no M12"
+          title={expanded ? "Recolher editor" : "Expandir editor"}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
           className="ml-auto grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
         >
-          <Maximize2 className="size-3.5" />
+          {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
         </button>
       </div>
 
@@ -248,30 +387,53 @@ export function ReplyBox({
           </ul>
         )}
         <textarea
+          ref={areaRef}
           value={text}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               void send();
+            } else if (e.key === "Enter" && e.shiftKey) {
+              // Shift+Enter inteligente: continua `- `, `2. `, `> ` (ver
+              // computeListContinuation); fora de lista, quebra de linha normal.
+              // setText direto (sem handleChange) para não re-disparar
+              // debounce de canned/typing nesta quebra sintética.
+              const target = e.currentTarget;
+              const edit = computeListContinuation(
+                target.value,
+                target.selectionStart,
+                target.selectionEnd,
+              );
+              if (edit) {
+                e.preventDefault();
+                setText(edit.text);
+                if (caretRaf.current !== null) cancelAnimationFrame(caretRaf.current);
+                caretRaf.current = requestAnimationFrame(() => {
+                  caretRaf.current = null;
+                  target.focus();
+                  target.setSelectionRange(edit.caret, edit.caret);
+                });
+              }
             }
           }}
-          rows={2}
+          rows={expanded ? 8 : 2}
           placeholder={tab === "private" ? "Nota visível só para a equipe..." : ""}
           className="w-full resize-none bg-transparent px-1 py-1 text-sm text-woot-slate-12 outline-none placeholder:text-woot-slate-10"
         />
       </div>
 
-      {/* Toolbar de formatação (decorativa até o M12) */}
+      {/* Toolbar de formatação markdown (paridade com o WootWriter) */}
       {tab === "reply" && (
-        <div className="flex items-center gap-0.5 pb-1">
-          {TOOLBAR.map((Icon, i) => (
+        <div className="flex items-center gap-0.5 pb-1" role="toolbar" aria-label="Formatação">
+          {TOOLBAR_ACTIONS.map(({ icon: Icon, label, action }) => (
             <button
-              key={i}
+              key={label}
               type="button"
-              title="Editor rico chega no M12"
-              disabled
-              className="grid size-7 place-content-center rounded-lg text-woot-slate-11 disabled:opacity-50"
+              title={label}
+              aria-label={label}
+              onClick={() => runToolbar(action)}
+              className="grid size-7 place-content-center rounded-lg text-woot-slate-11 transition-colors hover:bg-muted hover:text-woot-slate-12"
             >
               <Icon className="size-4" />
             </button>

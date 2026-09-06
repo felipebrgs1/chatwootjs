@@ -84,7 +84,7 @@ function CannedSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Configurações · Respostas prontas</h1>
         <p className="text-sm text-muted-foreground">
           Digite <code className="rounded bg-muted px-1">//atalho</code> na conversa para inserir.
@@ -94,7 +94,7 @@ function CannedSettings() {
         {isAdmin && (
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-3 rounded-lg border bg-white p-4"
+            className="grid gap-3 rounded-lg border bg-card p-4"
           >
             <h2 className="text-sm font-medium">{editing ? "Editar resposta" : "Nova resposta"}</h2>
             <div className="grid gap-1.5">
@@ -134,7 +134,7 @@ function CannedSettings() {
             placeholder="//atalho ou trecho do texto..."
           />
         </div>
-        <section className="rounded-lg border bg-white">
+        <section className="rounded-lg border bg-card">
           {items === null ? (
             <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
           ) : (

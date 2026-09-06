@@ -111,14 +111,14 @@ function AgentsSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Configurações · Agentes</h1>
         <p className="text-sm text-muted-foreground">{session.account.name}</p>
       </header>
       <main className="grid max-w-3xl gap-4 p-6">
         <form
           onSubmit={form.handleSubmit(onInvite)}
-          className="grid gap-3 rounded-lg border bg-white p-4"
+          className="grid gap-3 rounded-lg border bg-card p-4"
         >
           <h2 className="text-sm font-medium">Convidar agente</h2>
           <div className="grid gap-1.5 sm:grid-cols-2">
@@ -165,7 +165,7 @@ function AgentsSettings() {
             Convidar
           </Button>
         </form>
-        <section className="rounded-lg border bg-white">
+        <section className="rounded-lg border bg-card">
           {agents === null ? (
             <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
           ) : (

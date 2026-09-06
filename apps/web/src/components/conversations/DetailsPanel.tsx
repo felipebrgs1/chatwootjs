@@ -375,7 +375,7 @@ function ConversationActions({
                 style={active ? { backgroundColor: label.color } : undefined}
               >
                 {!active && (
-                  <span className="size-2 rounded-[2px]" style={{ backgroundColor: label.color }} />
+                  <span className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
                 )}
                 {label.title}
               </button>

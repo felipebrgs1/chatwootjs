@@ -16,7 +16,7 @@ export function AuthCard({
 }) {
   return (
     <div className="flex min-h-svh items-center justify-center bg-woot-bg p-4">
-      <div className="w-full max-w-sm rounded-xl border bg-white p-6 shadow-sm">
+      <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
           <ChatwootLogo className="size-9 rounded-full" />
           <div>

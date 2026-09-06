@@ -34,7 +34,7 @@ function WidgetPreview() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Preview do widget</h1>
         <p className="text-sm text-muted-foreground">
           Carrega o <code>widget.js</code> real nesta página (debug M5).

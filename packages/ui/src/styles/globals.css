@@ -90,6 +90,19 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Woot tokens no escuro — espelham o bloco `.dark` de
+     chatwoot/app/javascript/dashboard/assets/scss/_next-colors.scss */
+  --woot-bg: #18191b; /* slate-2 */
+  --woot-note: #302008; /* amber-3 */
+  --woot-nav-active-bg: #0f2748; /* blue-3 */
+  --woot-bubble-in: #272a2d; /* slate-4 */
+  --woot-bubble-out: #0f3966; /* solid-blue */
+  --woot-activity: rgba(35, 36, 42, 0.8); /* alpha-1 */
+  --woot-slate-3: #212225;
+  --woot-slate-10: #777b84;
+  --woot-slate-11: #b0b4ba;
+  --woot-slate-12: #edeef0;
 }
 
 @theme inline {

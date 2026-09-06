@@ -59,7 +59,7 @@ function InboxesSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="flex items-center justify-between border-b bg-white px-6 py-4">
+      <header className="flex items-center justify-between border-b bg-card px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold">Configurações · Caixas de entrada</h1>
           <p className="text-sm text-muted-foreground">
@@ -82,7 +82,7 @@ function InboxesSettings() {
           <p className="text-sm text-muted-foreground">Carregando...</p>
         )}
         {filtered.length === 0 && inboxes !== null && (
-          <p className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">
+          <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
             Nenhuma inbox encontrada.
           </p>
         )}
@@ -98,7 +98,7 @@ function InboxesSettings() {
                 <Link
                   to="/app/settings/inboxes/$inboxId"
                   params={{ inboxId: String(inbox.id) }}
-                  className="flex items-center gap-3 rounded-lg border bg-white p-4 transition-colors hover:border-woot-blue"
+                  className="flex items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-woot-blue"
                 >
                   <span className="grid size-9 flex-shrink-0 place-content-center rounded-lg bg-woot-nav-active-bg text-woot-blue">
                     <Icon className="size-4" />

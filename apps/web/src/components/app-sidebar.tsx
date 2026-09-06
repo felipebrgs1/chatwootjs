@@ -16,12 +16,16 @@ import {
   Megaphone,
   MessageCircle,
   MessageSquareQuote,
+  Monitor,
+  Moon,
+  Palette,
   PenLine,
   Phone,
   Repeat,
   Search,
   Settings,
   SquareUser,
+  Sun,
   Tag,
   ToyBrick,
   Users,
@@ -33,9 +37,15 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@chatwootjs/ui/components/dropdown-menu";
 import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
@@ -43,6 +53,7 @@ import { ChatwootLogo } from "@chatwootjs/ui/components/chatwoot-logo";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import { useSessionContext } from "@/components/session-provider";
+import { useTheme } from "@/components/theme-provider";
 import { apiFetch, signOut } from "@/lib/auth";
 
 const AVAILABILITY = [
@@ -106,6 +117,8 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, reload, switchAccount } = useSessionContext();
+  const { setTheme, theme } = useTheme();
+  const activeTheme = theme ?? "system";
   const accountId = session?.accountId;
   const [inboxes, setInboxes] = useState<
     Array<{ id: number; name: string; channel_type: string | null }>
@@ -390,12 +403,13 @@ export function AppSidebar() {
             <DropdownMenuTrigger
               aria-label="Trocar de conta"
               className={cn(
-                "flex min-w-0 items-center gap-1 rounded-lg px-1 py-1.5 font-medium hover:bg-muted",
-                collapsed ? "justify-center" : "flex-grow",
+                "flex min-w-0 items-center rounded-lg font-medium hover:bg-muted",
+                collapsed ? "size-8 justify-center" : "flex-grow gap-1 px-1.5 py-1.5",
               )}
             >
-              <WootAvatar name={session?.account.name ?? "?"} size="sm" />
-              {!collapsed && (
+              {collapsed ? (
+                <ChatwootLogo className="size-5" />
+              ) : (
                 <>
                   <span className="flex-grow truncate text-start">
                     {session?.account.name ?? "..."}
@@ -405,19 +419,24 @@ export function AppSidebar() {
               )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Contas</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Contas</DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              {session?.accounts.map((account) => (
-                <DropdownMenuItem
-                  key={account.id}
-                  onSelect={() => switchAccount(account.id)}
-                  className="gap-2"
-                >
-                  <WootAvatar name={account.name} size="sm" />
-                  <span className="flex-grow truncate">{account.name}</span>
-                  {account.id === session.accountId && <Check className="size-4 text-woot-blue" />}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                {session?.accounts.map((account) => (
+                  <DropdownMenuItem
+                    key={account.id}
+                    onSelect={() => switchAccount(account.id)}
+                    className="gap-2"
+                  >
+                    <span className="flex-grow truncate">{account.name}</span>
+                    {account.id === session.accountId && (
+                      <Check className="size-4 text-woot-blue" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -571,24 +590,60 @@ export function AppSidebar() {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-52">
-            <DropdownMenuLabel>{session?.user.name ?? "Minha conta"}</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{session?.user.name ?? "Minha conta"}</DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            {AVAILABILITY.map((item) => (
-              <DropdownMenuItem
-                key={item.value}
-                onSelect={() => void setAvailability(item.value)}
-                className="gap-2"
-              >
-                <span className={cn("size-2 rounded-full", item.dot)} />
-                {item.label}
-                {session?.user.availability === item.value && <Check className="ml-auto size-4" />}
+            <DropdownMenuGroup>
+              {AVAILABILITY.map((item) => (
+                <DropdownMenuItem
+                  key={item.value}
+                  onSelect={() => void setAvailability(item.value)}
+                  className="gap-2"
+                >
+                  <span className={cn("size-2 rounded-full", item.dot)} />
+                  {item.label}
+                  {session?.user.availability === item.value && (
+                    <Check className="ml-auto size-4" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-2">
+                  <Palette className="size-4" />
+                  Aparência
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-44">
+                  <DropdownMenuRadioGroup
+                    value={activeTheme}
+                    onValueChange={(value) => setTheme(value as string)}
+                  >
+                    <DropdownMenuRadioItem value="light" className="gap-2">
+                      <Sun className="size-4" />
+                      Claro
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="dark" className="gap-2">
+                      <Moon className="size-4" />
+                      Escuro
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="system" className="gap-2">
+                      <Monitor className="size-4" />
+                      Sistema
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onSelect={() => void logout()} className="gap-2">
+                <LogOut className="size-4" />
+                Sair
               </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void logout()} className="gap-2">
-              <LogOut className="size-4" />
-              Sair
-            </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

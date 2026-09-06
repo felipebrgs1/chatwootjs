@@ -5,6 +5,7 @@ import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import type { ConversationDetail, Message } from "@/lib/conversations";
+import { renderMessageContent, stripMarkdown } from "@/lib/markdown";
 
 const SERVER_URL =
   (import.meta.env.VITE_SERVER_URL as string | undefined) ?? "http://localhost:3000";
@@ -48,7 +49,7 @@ export function Thread({
           return (
             <div key={message.id} className="flex justify-center">
               <p
-                title={message.content ?? ""}
+                title={stripMarkdown(message.content ?? "")}
                 className="my-1 max-w-md rounded-lg bg-woot-activity px-3 py-1.5 text-center text-sm text-woot-slate-11"
               >
                 {message.content}
@@ -136,9 +137,9 @@ function MessageBubble({
             />
           ) : null}
           {message.content && (
-            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-woot-slate-12">
-              {message.content}
-            </p>
+            <div className="break-words text-sm leading-6 text-woot-slate-12">
+              {renderMessageContent(message.content)}
+            </div>
           )}
           {message.attachments.map((att) => (
             <AttachmentView key={att.id} attachment={att} />
@@ -174,9 +175,9 @@ function PrivateNote({ message, onDelete }: { message: Message; onDelete: (id: n
             ×
           </button>
         </p>
-        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-woot-slate-12">
-          {message.content}
-        </p>
+        <div className="break-words text-sm leading-6 text-woot-slate-12">
+          {renderMessageContent(message.content ?? "")}
+        </div>
         <p className="mt-1 flex items-center justify-end gap-1 text-xxs text-amber-800/70">
           <Lock className="size-3" />
           {formatTime(message.created_at)}
@@ -218,7 +219,7 @@ export function AttachmentView({ attachment }: { attachment: Message["attachment
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="mt-1.5 flex items-center gap-2 rounded-lg bg-white/60 px-2 py-1.5 text-xs text-woot-slate-12"
+      className="mt-1.5 flex items-center gap-2 rounded-lg bg-card/60 px-2 py-1.5 text-xs text-woot-slate-12"
     >
       <FileText className="size-4 flex-shrink-0" />
       <span className="truncate">{title}</span>

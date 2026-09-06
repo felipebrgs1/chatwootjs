@@ -187,7 +187,7 @@ function InboxDetail() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="flex items-center gap-3 border-b bg-white px-6 py-4">
+      <header className="flex items-center gap-3 border-b bg-card px-6 py-4">
         <Link to="/app/settings/inboxes">
           <Button variant="ghost" size="icon" aria-label="Voltar">
             <ArrowLeft className="size-4" />
@@ -198,7 +198,7 @@ function InboxDetail() {
           <p className="text-sm text-muted-foreground">{inbox?.channel_type ?? ""}</p>
         </div>
       </header>
-      <div className="flex gap-1 border-b bg-white px-6">
+      <div className="flex gap-1 border-b bg-card px-6">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -221,7 +221,7 @@ function InboxDetail() {
         {tab === "settings" && (
           <form
             onSubmit={form.handleSubmit(saveSettings)}
-            className="grid gap-3 rounded-lg border bg-white p-4"
+            className="grid gap-3 rounded-lg border bg-card p-4"
           >
             <div className="grid gap-1.5">
               <Label htmlFor="name">Nome</Label>
@@ -277,7 +277,7 @@ function InboxDetail() {
         )}
 
         {tab === "agents" && (
-          <section className="rounded-lg border bg-white">
+          <section className="rounded-lg border bg-card">
             {agents === null ? (
               <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
             ) : (
@@ -316,7 +316,7 @@ function InboxDetail() {
         )}
 
         {tab === "configuration" && inbox?.channel_type === "Channel::WebWidget" && (
-          <section className="grid gap-3 rounded-lg border bg-white p-4">
+          <section className="grid gap-3 rounded-lg border bg-card p-4">
             <h2 className="text-sm font-medium">Snippet do widget</h2>
             <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">
               {websiteToken
@@ -333,7 +333,7 @@ function InboxDetail() {
           </section>
         )}
         {tab === "configuration" && inbox?.channel_type === "Channel::Api" && (
-          <section className="grid gap-2 rounded-lg border bg-white p-4 text-sm">
+          <section className="grid gap-2 rounded-lg border bg-card p-4 text-sm">
             <h2 className="font-medium">Token do canal API</h2>
             <p className="text-xs text-muted-foreground">
               Use no header <code>api_secret</code> das chamadas da API channel.
@@ -342,7 +342,7 @@ function InboxDetail() {
           </section>
         )}
         {tab === "configuration" && inbox?.channel_type === "Channel::Email" && (
-          <section className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">
+          <section className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
             IMAP/SMTP completos chegam no M10.
           </section>
         )}
@@ -410,7 +410,7 @@ function WorkingHoursForm({
   }
 
   return (
-    <section className="grid gap-3 rounded-lg border bg-white p-4">
+    <section className="grid gap-3 rounded-lg border bg-card p-4">
       {!enabled && (
         <p className="text-xs text-muted-foreground">
           Habilite o horário comercial na aba Configurações para ativar o banner.

@@ -89,7 +89,7 @@ function ContactsPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="flex items-center justify-between border-b bg-white px-6 py-4">
+      <header className="flex items-center justify-between border-b bg-card px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold">Contatos</h1>
           <p className="text-sm text-muted-foreground">CRM da conta.</p>
@@ -141,7 +141,7 @@ function ContactsPage() {
           </select>
           {importResult && <span className="text-xs text-muted-foreground">{importResult}</span>}
         </div>
-        <section className="rounded-lg border bg-white">
+        <section className="rounded-lg border bg-card">
           {contacts === null ? (
             <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
           ) : contacts.length === 0 ? (
@@ -316,7 +316,7 @@ function CreateContactDialog({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg border bg-white p-5 shadow-lg">
+      <div className="w-full max-w-md rounded-lg border bg-card p-5 shadow-lg">
         <h2 className="mb-3 text-base font-semibold">Novo contato</h2>
         <form
           onSubmit={form.handleSubmit(async (values) => {
@@ -425,7 +425,7 @@ function ContactDrawer({
         className="flex-1 cursor-default"
         onClick={onClose}
       />
-      <aside className="flex w-full max-w-md flex-col overflow-y-auto border-l bg-white p-5">
+      <aside className="flex w-full max-w-md flex-col overflow-y-auto border-l bg-card p-5">
         <div className="mb-4 flex items-center gap-3">
           <WootAvatar name={detail.name || "?"} />
           <div className="min-w-0 flex-1">

@@ -10,7 +10,7 @@ export interface StubPageProps {
 export function StubPage({ title, module, description }: StubPageProps) {
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">{title}</h1>
       </header>
       <EmptyState

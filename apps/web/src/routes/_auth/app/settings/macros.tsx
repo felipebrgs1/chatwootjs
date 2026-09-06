@@ -87,7 +87,7 @@ function MacrosSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Configurações · Macros</h1>
         <p className="text-sm text-muted-foreground">
           Aplique várias ações numa conversa com 1 clique.
@@ -96,7 +96,7 @@ function MacrosSettings() {
       <main className="grid max-w-2xl content-start gap-4 p-6">
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="grid gap-3 rounded-lg border bg-white p-4"
+          className="grid gap-3 rounded-lg border bg-card p-4"
         >
           <h2 className="text-sm font-medium">{editing ? "Editar macro" : "Nova macro"}</h2>
           <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
@@ -132,7 +132,7 @@ function MacrosSettings() {
             )}
           </div>
         </form>
-        <section className="rounded-lg border bg-white">
+        <section className="rounded-lg border bg-card">
           {items === null ? (
             <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
           ) : (

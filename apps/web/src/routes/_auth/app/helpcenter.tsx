@@ -143,7 +143,7 @@ function HelpCenterSettings() {
   if (!current) {
     return (
       <div className="flex flex-1 flex-col bg-woot-bg">
-        <header className="border-b bg-white px-6 py-4">
+        <header className="border-b bg-card px-6 py-4">
           <h1 className="text-lg font-semibold">Central de ajuda</h1>
           <p className="text-sm text-muted-foreground">Portais públicos com artigos.</p>
         </header>
@@ -151,7 +151,7 @@ function HelpCenterSettings() {
           {isAdmin && (
             <form
               onSubmit={form.handleSubmit(onSubmitPortal)}
-              className="grid gap-3 rounded-lg border bg-white p-4"
+              className="grid gap-3 rounded-lg border bg-card p-4"
             >
               <h2 className="text-sm font-medium">Novo portal</h2>
               <div className="grid gap-3 sm:grid-cols-[1fr_180px_100px]">
@@ -176,7 +176,7 @@ function HelpCenterSettings() {
               </div>
             </form>
           )}
-          <section className="rounded-lg border bg-white">
+          <section className="rounded-lg border bg-card">
             {portals === null ? (
               <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
             ) : (
@@ -215,7 +215,7 @@ function HelpCenterSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="flex items-center gap-3 border-b bg-white px-6 py-4">
+      <header className="flex items-center gap-3 border-b bg-card px-6 py-4">
         <Button variant="ghost" size="icon" aria-label="Voltar" onClick={() => setCurrent(null)}>
           <ArrowLeft className="size-4" />
         </Button>
@@ -227,7 +227,7 @@ function HelpCenterSettings() {
       <main className="grid content-start gap-4 p-6 lg:grid-cols-[300px_1fr]">
         <section className="grid content-start gap-2">
           <h2 className="text-sm font-medium">Categorias</h2>
-          <ul className="divide-y rounded-lg border bg-white">
+          <ul className="divide-y rounded-lg border bg-card">
             {categories.map((c) => (
               <li key={c.id} className="p-3 text-sm font-medium">
                 {c.name}
@@ -247,7 +247,7 @@ function HelpCenterSettings() {
             </div>
           )}
           <h2 className="mt-2 text-sm font-medium">Publicados ({published.length})</h2>
-          <ul className="divide-y rounded-lg border bg-white">
+          <ul className="divide-y rounded-lg border bg-card">
             {published.map((a) => (
               <li key={a.id} className="flex items-center gap-2 p-3 text-sm">
                 <span className="min-w-0 flex-1 truncate">{a.title}</span>
@@ -268,7 +268,7 @@ function HelpCenterSettings() {
           {draft.length > 0 && (
             <>
               <h2 className="mt-2 text-sm font-medium">Rascunhos ({draft.length})</h2>
-              <ul className="divide-y rounded-lg border border-dashed bg-white">
+              <ul className="divide-y rounded-lg border border-dashed bg-card">
                 {draft.map((a) => (
                   <li key={a.id} className="flex items-center gap-2 p-3 text-sm">
                     <span className="min-w-0 flex-1 truncate">{a.title}</span>
@@ -288,7 +288,7 @@ function HelpCenterSettings() {
             </>
           )}
         </section>
-        <section className="grid content-start gap-3 rounded-lg border bg-white p-4">
+        <section className="grid content-start gap-3 rounded-lg border bg-card p-4">
           <h2 className="flex items-center gap-2 text-sm font-medium">
             <Eye className="size-4" />
             {editingArticle ? "Editar artigo" : "Novo artigo"}

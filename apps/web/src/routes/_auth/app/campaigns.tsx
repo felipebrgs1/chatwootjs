@@ -177,7 +177,7 @@ function CampaignsPage() {
 
   function card(c: Campaign) {
     return (
-      <li key={c.id} className="grid gap-2 rounded-lg border bg-white p-4">
+      <li key={c.id} className="grid gap-2 rounded-lg border bg-card p-4">
         <div className="flex items-center gap-2">
           <Megaphone className="size-4 text-woot-blue" />
           <p className="min-w-0 flex-1 truncate text-sm font-medium">{c.title}</p>
@@ -248,7 +248,7 @@ function CampaignsPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Campanhas</h1>
         <p className="text-sm text-muted-foreground">
           Ongoing no live chat por gatilho · one-off em massa para a audiência.
@@ -258,7 +258,7 @@ function CampaignsPage() {
         {isAdmin && (
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="grid content-start gap-3 rounded-lg border bg-white p-4"
+            className="grid content-start gap-3 rounded-lg border bg-card p-4"
           >
             <h2 className="text-sm font-medium">Nova campanha</h2>
             <div className="grid gap-1.5">

@@ -46,14 +46,14 @@ function GeneralSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Configurações · Geral</h1>
         <p className="text-sm text-muted-foreground">{session.account.name}</p>
       </header>
       <main className="max-w-xl p-6">
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="grid gap-4 rounded-lg border bg-white p-4"
+          className="grid gap-4 rounded-lg border bg-card p-4"
         >
           <div className="grid gap-1.5">
             <Label htmlFor="name">Nome da conta</Label>

@@ -139,12 +139,12 @@ function ReportsPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Relatórios</h1>
         <p className="text-sm text-muted-foreground">Desempenho da operação no período.</p>
       </header>
       <main className="grid content-start gap-4 p-6">
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-white p-4">
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
           <div className="grid gap-1.5">
             <Label htmlFor="since">De</Label>
             <Input
@@ -184,7 +184,7 @@ function ReportsPage() {
 
         <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {kpis.map(([label, value]) => (
-            <div key={label} className="rounded-lg border bg-white p-3">
+            <div key={label} className="rounded-lg border bg-card p-3">
               <p className="text-xs text-muted-foreground">{label}</p>
               <p className="text-xl font-semibold">{value}</p>
             </div>
@@ -193,7 +193,7 @@ function ReportsPage() {
 
         {tab === "overview" && (
           <section className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border bg-white p-4">
+            <div className="rounded-lg border bg-card p-4">
               <h2 className="mb-2 text-sm font-medium">Conversas por dia</h2>
               <div className="h-64">
                 <ResponsiveContainer>
@@ -212,7 +212,7 @@ function ReportsPage() {
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="rounded-lg border bg-white p-4">
+            <div className="rounded-lg border bg-card p-4">
               <h2 className="mb-2 text-sm font-medium">Resoluções por dia</h2>
               <div className="h-64">
                 <ResponsiveContainer>
@@ -231,7 +231,7 @@ function ReportsPage() {
 
         {tab === "csat" && csat && (
           <section className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border bg-white p-4">
+            <div className="rounded-lg border bg-card p-4">
               <h2 className="mb-2 text-sm font-medium">
                 Satisfação — média {csat.average?.toFixed(1) ?? "—"} ({csat.total} respostas
                 {csat.response_rate !== null &&
@@ -254,7 +254,7 @@ function ReportsPage() {
         )}
 
         {rows && (
-          <section className="overflow-x-auto rounded-lg border bg-white">
+          <section className="overflow-x-auto rounded-lg border bg-card">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">

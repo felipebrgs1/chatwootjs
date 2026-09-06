@@ -97,7 +97,7 @@ function PublicPortalPage() {
             value={q}
             onChange={(e) => go({ article: undefined, q: e.target.value })}
             placeholder="Buscar artigos..."
-            className="bg-white text-foreground"
+            className="bg-card text-foreground"
           />
         </div>
       </header>
@@ -105,7 +105,7 @@ function PublicPortalPage() {
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!portal && !error && <p className="text-sm text-muted-foreground">Carregando...</p>}
         {results && (
-          <section className="rounded-lg border bg-white">
+          <section className="rounded-lg border bg-card">
             <ul className="divide-y">
               {results.length === 0 && (
                 <li className="p-4 text-sm text-muted-foreground">Nada encontrado.</li>
@@ -126,7 +126,7 @@ function PublicPortalPage() {
           </section>
         )}
         {article ? (
-          <article className="rounded-lg border bg-white p-6">
+          <article className="rounded-lg border bg-card p-6">
             <button
               type="button"
               onClick={() => go({ article: undefined, q })}
@@ -146,7 +146,7 @@ function PublicPortalPage() {
         ) : (
           !results &&
           portal?.categories.map((c) => (
-            <section key={c.id} className="rounded-lg border bg-white">
+            <section key={c.id} className="rounded-lg border bg-card">
               <h2 className="border-b px-4 py-3 text-sm font-semibold">{c.name}</h2>
               <ul className="divide-y">
                 {c.articles.map((a) => (

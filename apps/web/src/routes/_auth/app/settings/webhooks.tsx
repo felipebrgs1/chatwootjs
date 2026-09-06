@@ -116,7 +116,7 @@ function WebhooksSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Configurações · Webhooks</h1>
         <p className="text-sm text-muted-foreground">
           POST em JSON (<code className="rounded bg-muted px-1">event, data, account_id</code>) a
@@ -127,7 +127,7 @@ function WebhooksSettings() {
         {isAdmin && (
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-3 rounded-lg border bg-white p-4"
+            className="grid gap-3 rounded-lg border bg-card p-4"
           >
             <h2 className="text-sm font-medium">Novo webhook</h2>
             <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
@@ -165,7 +165,7 @@ function WebhooksSettings() {
             </div>
           </form>
         )}
-        <section className="rounded-lg border bg-white">
+        <section className="rounded-lg border bg-card">
           {items === null ? (
             <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
           ) : (

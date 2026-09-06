@@ -155,7 +155,7 @@ function AutomationsSettings() {
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-card px-6 py-4">
         <h1 className="text-lg font-semibold">Configurações · Automações</h1>
         <p className="text-sm text-muted-foreground">
           Regras evento → condições → ações, executadas em segundos.
@@ -165,7 +165,7 @@ function AutomationsSettings() {
         {isAdmin && (
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-3 rounded-lg border bg-white p-4"
+            className="grid gap-3 rounded-lg border bg-card p-4"
           >
             <h2 className="text-sm font-medium">{editing ? "Editar regra" : "Nova regra"}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -235,7 +235,7 @@ function AutomationsSettings() {
             </div>
           </form>
         )}
-        <section className="rounded-lg border bg-white">
+        <section className="rounded-lg border bg-card">
           {items === null ? (
             <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
           ) : (

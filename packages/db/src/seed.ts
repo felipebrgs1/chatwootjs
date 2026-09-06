@@ -4,10 +4,13 @@ import {
   accountUsers,
   accounts,
   channelWebWidgets,
+  contactInboxes,
   contacts,
+  conversations,
   inboxMembers,
   inboxes,
   labels,
+  messages,
   superAdmins,
   users,
 } from "./schema";
@@ -125,15 +128,69 @@ async function seed(): Promise<void> {
     where: (ct, { eq, and }) =>
       and(eq(ct.accountId, accountId), eq(ct.email, "carla@cliente.test")),
   });
-  if (!demoContact) {
-    await db.insert(contacts).values({
-      accountId,
-      name: "Carla Souza",
-      email: "carla@cliente.test",
-      phoneNumber: "+5511999998888",
-      location: "São Paulo, SP",
-      additionalAttributes: { company_name: "Cliente Inc" },
-    });
+  let demoContactId = demoContact?.id;
+  if (!demoContactId) {
+    const [created] = await db
+      .insert(contacts)
+      .values({
+        accountId,
+        name: "Carla Souza",
+        email: "carla@cliente.test",
+        phoneNumber: "+5511999998888",
+        location: "São Paulo, SP",
+        additionalAttributes: { company_name: "Cliente Inc" },
+      })
+      .returning({ id: contacts.id });
+    demoContactId = created?.id;
+  }
+  if (!demoContactId) throw new Error("seed: demo contact not found");
+
+  // ---- M4: conversa demo (thread visível no dashboard) ----
+  const existingConv = await db.query.conversations.findFirst({
+    where: (cv, { eq, and }) => and(eq(cv.accountId, accountId), eq(cv.contactId, demoContactId)),
+  });
+  if (!existingConv) {
+    const [conv] = await db
+      .insert(conversations)
+      .values({
+        accountId,
+        inboxId,
+        contactId: demoContactId,
+        displayId: 1,
+        uuid: crypto.randomUUID(),
+        status: 0,
+        assigneeId: adminId,
+        lastActivityAt: new Date(),
+      })
+      .returning({ id: conversations.id });
+    if (conv) {
+      await db.insert(contactInboxes).values({
+        contactId: demoContactId,
+        inboxId,
+        sourceId: crypto.randomUUID(),
+        pubsubToken: crypto.randomUUID(),
+      });
+      await db.insert(messages).values([
+        {
+          accountId,
+          inboxId,
+          conversationId: conv.id,
+          messageType: 0,
+          content: "Olá! Preciso de ajuda com meu pedido.",
+          senderType: "Contact",
+          senderId: demoContactId,
+        },
+        {
+          accountId,
+          inboxId,
+          conversationId: conv.id,
+          messageType: 1,
+          content: "Olá Carla! Claro, como posso ajudar?",
+          senderType: "User",
+          senderId: adminId,
+        },
+      ]);
+    }
   }
 
   console.log(`seed ok: account=Demo admin=${ADMIN_EMAIL} agent=${AGENT_EMAIL} (${PASSWORD})`);

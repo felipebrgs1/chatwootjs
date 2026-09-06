@@ -161,3 +161,69 @@ export {
   validateCustomAttributes,
 } from "./services/contacts.js";
 export type { ApiContact, ApiCustomAttribute, ApiLabel, ApiNote } from "./services/contacts.js";
+export {
+  CONVERSATION_PRIORITIES,
+  CONVERSATION_STATUSES,
+  ConversationLabelsBodySchema,
+  ConversationMetaQuerySchema,
+  ConversationQuerySchema,
+  PRIORITY_FROM_INT as PRIORITY_LABELS,
+  PRIORITY_TO_INT,
+  PriorityBodySchema,
+  AssigneeBodySchema,
+  SnoozeBodySchema,
+  STATUS_FROM_INT as STATUS_LABELS,
+  STATUS_TO_INT,
+  TeamBodySchema,
+  ToggleStatusSchema,
+} from "./schemas/conversations.js";
+export type { ConversationQuery } from "./schemas/conversations.js";
+export {
+  CreateMessageSchema,
+  FILE_TYPES,
+  MAX_UPLOAD_BYTES,
+  MESSAGE_TYPE_FROM_INT,
+  MESSAGE_TYPE_TO_INT,
+  MessagesQuerySchema,
+  guessFileType,
+} from "./schemas/messages.js";
+export type { CreateMessageInput } from "./schemas/messages.js";
+export {
+  assignConversation,
+  assertConversationAccess,
+  createActivityMessage,
+  createConversation,
+  findConversation,
+  getConversation,
+  listConversations,
+  markConversationRead,
+  muteConversation,
+  registerSnoozeJob,
+  setConversationLabels,
+  setConversationPriority,
+  setConversationTeam,
+  toApiConversationDetail,
+  toApiConversationItem,
+  toggleConversationStatus,
+  visibleInboxIds,
+} from "./services/conversations.js";
+export type {
+  ApiConversationDetail,
+  ApiConversationItem,
+  ApiMessagePreview,
+} from "./services/conversations.js";
+export {
+  addParticipants,
+  createIncomingMessage,
+  deleteMessage,
+  lastMessage,
+  listMessages,
+  listParticipants,
+  removeParticipant,
+  sendAgentMessage,
+  toApiMessage,
+  uploadMessageAttachment,
+} from "./services/messages.js";
+export type { ApiAttachment, ApiMessage } from "./services/messages.js";
+export { LocalStorageProvider, setStorageProvider, storage } from "./lib/storage.js";
+export type { StorageProvider, StoredObject } from "./lib/storage.js";

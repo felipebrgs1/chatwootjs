@@ -4,13 +4,15 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
+import { cableRoute, websocket } from "./cable";
 import { notFound, onError } from "./routes/v1/_helpers";
 import auth from "./routes/auth";
 import v1 from "./routes/v1/index";
-import { registerContactImportJob } from "@chatwootjs/core";
+import { registerContactImportJob, registerSnoozeJob } from "@chatwootjs/core";
 
 // Jobs de background (in-process; BullMQ entra no M6).
 registerContactImportJob();
+registerSnoozeJob();
 
 const app = new Hono();
 
@@ -38,5 +40,18 @@ app.get("/health", (c) => {
 
 app.route("/auth", auth);
 app.route("/api/v1", v1);
+app.get("/cable", cableRoute);
 
-export default app;
+// Arquivos enviados (anexos). Em produção, trocar por S3/MinIO (ver lib/storage).
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? `${process.cwd()}/.uploads`;
+app.get("/uploads/*", async (c) => {
+  const key = c.req.path.replace(/^\/uploads\//, "");
+  if (key.includes("..")) return c.text("Forbidden", 403);
+  const file = Bun.file(`${UPLOAD_DIR}/${key}`);
+  if (!(await file.exists())) return c.text("Not found", 404);
+  return new Response(file.stream(), {
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+  });
+});
+
+export default { fetch: app.fetch, websocket };

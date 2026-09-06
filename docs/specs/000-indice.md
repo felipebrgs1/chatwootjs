@@ -15,7 +15,7 @@ quando o módulo estiver implementado, testado e com o aceite da spec cumprido.
 | M1     | `M1-auth-accounts.md`      | Auth, contas, usuários, roles                        | [x] done | [x] done |
 | M2     | `M2-inboxes-channels.md`   | Inboxes, canais, horário comercial                   | [x] done | [x] done |
 | M3     | `M3-contacts.md`           | Contatos, labels, atributos custom, import           | [x] done | [x] done |
-| M4     | `M4-conversations.md`      | Conversas, mensagens, realtime                       | [x] done | [ ] todo |
+| M4     | `M4-conversations.md`      | Conversas, mensagens, realtime                       | [x] done | [x] done |
 | M5     | `M5-widget.md`             | Widget website + Channel API                         | [x] done | [ ] todo |
 | M6     | `M6-automation.md`         | Teams, canned, macros, automações, webhooks          | [x] done | [ ] todo |
 | M7     | `M7-campaigns.md`          | Campanhas ongoing + one-off                          | [x] done | [ ] todo |

@@ -13,7 +13,8 @@ apps/web/src/routeTree.gen.ts
 local.db
 local.db-*
 shots/*
-shot.mjs
+shot*.mjs
+.uploads/
 # Environment variables
 .env
 .env*.local

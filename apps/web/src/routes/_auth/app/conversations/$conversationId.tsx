@@ -5,7 +5,7 @@ import { ConversationsPage } from "@/components/conversations/ConversationsPage"
 import type { AssigneeType } from "@/lib/conversations";
 import type { StatusChip } from "@/components/conversations/ConversationList";
 
-export const Route = createFileRoute("/_auth/app/")({
+export const Route = createFileRoute("/_auth/app/conversations/$conversationId")({
   validateSearch: (search) =>
     z
       .object({
@@ -14,16 +14,17 @@ export const Route = createFileRoute("/_auth/app/")({
         q: z.string().optional(),
       })
       .parse(search),
-  component: ConversationsHome,
+  component: ConversationView,
 });
 
-function ConversationsHome() {
+function ConversationView() {
+  const { conversationId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
   return (
     <ConversationsPage
-      selectedId={null}
+      selectedId={Number(conversationId)}
       filters={{
         status: (search.status ?? "open") as StatusChip,
         assignee: (search.assignee ?? "me") as AssigneeType,

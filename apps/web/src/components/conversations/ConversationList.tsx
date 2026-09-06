@@ -243,55 +243,53 @@ function ConversationCard({
                 {relativeTime(item.last_activity_at)}
               </span>
             </div>
-            {/* Linha 2: preview da última mensagem */}
-            {last?.content && (
-              <p className="mt-1 flex min-w-0 items-center gap-1 text-[13px] leading-4">
-                {lastIsIncoming ? (
+            {/* Linha 2: preview da última mensagem — sempre presente */}
+            <p className="mt-1 flex min-w-0 items-center gap-1 text-[13px] leading-4">
+              {last?.content &&
+                (lastIsIncoming ? (
                   <MessageSquare className="size-3 flex-shrink-0 text-woot-slate-11" />
                 ) : (
                   <Repeat className="size-3 flex-shrink-0 text-woot-slate-11" />
+                ))}
+              <span
+                className={cn(
+                  "min-w-0 truncate",
+                  item.unread_count > 0 ? "text-woot-slate-12" : "text-woot-slate-11",
                 )}
-                <span
-                  className={cn(
-                    "truncate",
-                    item.unread_count > 0 ? "text-woot-slate-12" : "text-woot-slate-11",
-                  )}
-                >
-                  {preview(item)}
-                </span>
-              </p>
-            )}
-            {/* Linha 3: labels / assignee / não lidas */}
-            {(chips.length > 0 || item.assignee_name || item.unread_count > 0) && (
-              <div className="mt-1 flex items-center gap-2">
-                {chips.length > 0 && (
-                  <div className="flex min-w-0 flex-wrap gap-1">
-                    {chips.map((label) => (
+              >
+                {last?.content ? preview(item) : "Sem mensagens ainda"}
+              </span>
+            </p>
+            {/* Linha 3: labels / assignee / não lidas — sempre presente
+                (altura fixa, cards com a mesma altura como no Chatwoot) */}
+            <div className="mt-1 flex min-h-5 items-center gap-2">
+              {chips.length > 0 && (
+                <div className="flex min-w-0 flex-wrap gap-1">
+                  {chips.map((label) => (
+                    <span
+                      key={label.id}
+                      className="flex items-center gap-1 rounded-md bg-woot-slate-3 px-1.5 py-0.5 text-[10px] leading-4 text-woot-slate-11"
+                    >
                       <span
-                        key={label.id}
-                        className="flex items-center gap-1 rounded-md bg-woot-slate-3 px-1.5 py-0.5 text-[10px] leading-4 text-woot-slate-11"
-                      >
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: label.color }}
-                        />
-                        {label.title}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {item.assignee_name && chips.length === 0 && (
-                  <span className="min-w-0 flex-1 truncate text-xs text-woot-slate-11">
-                    {item.assignee_name}
-                  </span>
-                )}
-                {item.unread_count > 0 && (
-                  <span className="ml-auto grid size-5 flex-shrink-0 place-content-center rounded-full bg-woot-blue text-xs font-semibold text-white">
-                    {item.unread_count}
-                  </span>
-                )}
-              </div>
-            )}
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: label.color }}
+                      />
+                      {label.title}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {item.assignee_name && chips.length === 0 && (
+                <span className="min-w-0 flex-1 truncate text-xs text-woot-slate-11">
+                  {item.assignee_name}
+                </span>
+              )}
+              {item.unread_count > 0 && (
+                <span className="ml-auto grid size-5 flex-shrink-0 place-content-center rounded-full bg-woot-blue text-xs font-semibold text-white">
+                  {item.unread_count}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Link>

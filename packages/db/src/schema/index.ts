@@ -11,4 +11,7 @@ export * from "./canned-responses";
 export * from "./macros";
 export * from "./automation";
 export * from "./webhooks";
+export * from "./campaigns";
+export * from "./reporting";
+export * from "./portals";
 export * from "./messages";

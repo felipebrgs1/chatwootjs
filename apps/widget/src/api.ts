@@ -13,6 +13,12 @@ export interface WidgetConfig {
   working_hours_enabled: boolean;
   out_of_office_message: string | null;
   allow_messages_after_resolved: boolean;
+  ongoing_campaigns: Array<{
+    id: number;
+    title: string;
+    message: string;
+    trigger_rules: { url?: string; time_on_page?: number };
+  }>;
 }
 
 export interface WidgetMessage {

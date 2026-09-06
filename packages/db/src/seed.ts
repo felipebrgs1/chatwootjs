@@ -3,8 +3,10 @@ import "./env";
 import {
   accountUsers,
   accounts,
+  articles,
   automationRules,
   cannedResponses,
+  categories,
   channelWebWidgets,
   contactInboxes,
   contacts,
@@ -14,6 +16,8 @@ import {
   labels,
   macros,
   messages,
+  campaigns,
+  portals,
   superAdmins,
   teamMembers,
   teams,
@@ -262,6 +266,79 @@ async function seed(): Promise<void> {
       ],
       active: true,
     });
+  }
+
+  // ---- M7–M9: campanha ongoing demo + portal demo (idempotentes) ----
+  const demoCampaign = await db.query.campaigns.findFirst({
+    where: (c, { eq, and }) => and(eq(c.accountId, accountId), eq(c.title, "Boas-vindas")),
+  });
+  if (!demoCampaign) {
+    await db.insert(campaigns).values({
+      accountId,
+      inboxId,
+      title: "Boas-vindas",
+      message: "Aproveite 10% off na primeira compra!",
+      campaignType: 0,
+      campaignStatus: 0,
+      triggerRules: { time_on_page: 20 },
+      audience: {},
+      senderId: adminId,
+    });
+  }
+
+  const demoPortal = await db.query.portals.findFirst({
+    where: (p, { eq, and }) => and(eq(p.accountId, accountId), eq(p.slug, "ajuda")),
+  });
+  let demoPortalId = demoPortal?.id;
+  if (!demoPortalId) {
+    const [created] = await db
+      .insert(portals)
+      .values({
+        accountId,
+        name: "Ajuda",
+        slug: "ajuda",
+        color: "#1f93ff",
+        pageTitle: "Central de Ajuda",
+        headerText: "Como podemos ajudar?",
+      })
+      .returning({ id: portals.id });
+    demoPortalId = created?.id;
+  }
+  if (demoPortalId) {
+    let catId = (
+      await db.query.categories.findFirst({
+        where: (c, { eq, and }) =>
+          and(eq(c.portalId, demoPortalId!), eq(c.slug, "primeiros-passos")),
+      })
+    )?.id;
+    if (!catId) {
+      const [created] = await db
+        .insert(categories)
+        .values({
+          accountId,
+          portalId: demoPortalId,
+          name: "Primeiros passos",
+          slug: "primeiros-passos",
+        })
+        .returning({ id: categories.id });
+      catId = created?.id;
+    }
+    const demoArticle = await db.query.articles.findFirst({
+      where: (a, { eq, and }) => and(eq(a.portalId, demoPortalId!), eq(a.slug, "como-comecar")),
+    });
+    if (!demoArticle) {
+      await db.insert(articles).values({
+        accountId,
+        portalId: demoPortalId,
+        categoryId: catId ?? null,
+        authorId: adminId,
+        title: "Como começar",
+        slug: "como-comecar",
+        description: "Primeiros passos na plataforma",
+        content: "<p>Bem-vindo! Este é o artigo de exemplo da central de ajuda.</p>",
+        status: 1,
+      });
+    }
   }
 
   console.log(`seed ok: account=Demo admin=${ADMIN_EMAIL} agent=${AGENT_EMAIL} (${PASSWORD})`);

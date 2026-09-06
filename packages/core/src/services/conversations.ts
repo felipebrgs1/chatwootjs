@@ -466,21 +466,32 @@ export async function createConversation(
   if (!row) throw new UnprocessableError("Could not create conversation");
 
   if (input.message?.content) {
-    await db.insert(messages).values({
-      accountId,
-      inboxId: inbox.id,
-      conversationId: row.id,
-      messageType: 1,
-      private: false,
-      status: 0,
-      content: input.message.content,
-      senderType: "User",
-      senderId: auth.userId,
-    });
+    const [created] = await db
+      .insert(messages)
+      .values({
+        accountId,
+        inboxId: inbox.id,
+        conversationId: row.id,
+        messageType: 1,
+        private: false,
+        status: 0,
+        content: input.message.content,
+        senderType: "User",
+        senderId: auth.userId,
+      })
+      .returning();
     await db
       .update(conversations)
       .set({ firstReplyCreatedAt: new Date(), updatedAt: new Date() })
       .where(eq(conversations.id, row.id));
+    // Publica como qualquer mensagem (realtime, automações, relatórios).
+    if (created) {
+      const { toApiMessage } = await import("./messages.js");
+      publish(accountId, "message.created", {
+        ...(await toApiMessage(created)),
+        conversation_id: row.id,
+      });
+    }
   }
 
   const fresh = await findConversation(accountId, row.id);

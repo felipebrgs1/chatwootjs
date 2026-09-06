@@ -36,6 +36,20 @@
       "when": 1788720871242,
       "tag": "0004_ancient_swarm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788722145730,
+      "tag": "0005_quick_menace",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788723382883,
+      "tag": "0006_sad_silver_surfer",
+      "breakpoints": true
     }
   ]
 }

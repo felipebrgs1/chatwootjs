@@ -18,9 +18,9 @@ quando o módulo estiver implementado, testado e com o aceite da spec cumprido.
 | M4     | `M4-conversations.md`      | Conversas, mensagens, realtime                       | [x] done | [x] done |
 | M5     | `M5-widget.md`             | Widget website + Channel API                         | [x] done | [x] done |
 | M6     | `M6-automation.md`         | Teams, canned, macros, automações, webhooks          | [x] done | [x] done |
-| M7     | `M7-campaigns.md`          | Campanhas ongoing + one-off                          | [x] done | [ ] todo |
-| M8     | `M8-reports.md`            | Relatórios + CSAT                                    | [x] done | [ ] todo |
-| M9     | `M9-helpcenter.md`         | Central de ajuda / portais públicos                  | [x] done | [ ] todo |
+| M7     | `M7-campaigns.md`          | Campanhas ongoing + one-off                          | [x] done | [x] done |
+| M8     | `M8-reports.md`            | Relatórios + CSAT                                    | [x] done | [x] done |
+| M9     | `M9-helpcenter.md`         | Central de ajuda / portais públicos                  | [x] done | [x] done |
 | M10    | `M10-external-channels.md` | WhatsApp, Meta, Telegram, Email, SMS, Line, Voice    | [x] done | [ ] todo |
 | M11    | `M11-notifications.md`     | Notificações, presença, busca global, filtros salvos | [x] done | [ ] todo |
 | M12    | `M12-polish.md`            | Superadmin, auditoria, AgentBots, QA 1:1             | [x] done | [ ] todo |

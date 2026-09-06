@@ -328,3 +328,63 @@ export {
 export type { ApiWebhook } from "./services/webhooks.js";
 export { activeJobRunner, initJobs } from "./jobs/index.js";
 export { registerAutomationListeners } from "./jobs/automation.js";
+export {
+  CampaignsQuerySchema,
+  CreateCampaignSchema,
+  UpdateCampaignSchema,
+} from "./schemas/campaigns.js";
+export { ReportsQuerySchema, SubmitCsatSchema } from "./schemas/reports.js";
+export type { ReportsQuery } from "./schemas/reports.js";
+export {
+  CreateArticleSchema,
+  CreateCategorySchema,
+  CreatePortalSchema,
+  UpdateArticleSchema,
+  UpdateCategorySchema,
+  UpdatePortalSchema,
+} from "./schemas/portals.js";
+export {
+  audiencePreview,
+  createCampaign,
+  deleteCampaign,
+  findCampaign,
+  listActiveOngoingCampaigns,
+  listCampaigns,
+  registerCampaignJob,
+  triggerCampaign,
+  updateCampaign,
+} from "./services/campaigns.js";
+export type { ApiCampaign, AudiencePreview } from "./services/campaigns.js";
+export {
+  getAgentsReport,
+  getCsatReport,
+  getInboxesReport,
+  getLabelsReport,
+  getOverview,
+  getSummary,
+  getTeamsReport,
+  registerReportingEmitters,
+  registerReportingRollup,
+  runRollupOnce,
+  submitCsat,
+} from "./services/reporting.js";
+export type { BreakdownRow, CsatReport, OverviewPoint, Summary } from "./services/reporting.js";
+export {
+  createArticle,
+  createCategory,
+  createPortal,
+  deleteArticle,
+  deleteCategory,
+  deletePortal,
+  getPublicArticle,
+  getPublicPortal,
+  listArticles,
+  listCategories,
+  listPortals,
+  sanitizeArticleHtml,
+  setArticleStatus,
+  updateArticle,
+  updateCategory,
+  updatePortal,
+} from "./services/portals.js";
+export type { ApiArticle, ApiCategory, ApiPortal, PublicPortal } from "./services/portals.js";

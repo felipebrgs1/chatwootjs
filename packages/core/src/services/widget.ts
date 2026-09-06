@@ -85,6 +85,7 @@ function newPubsubToken(): string {
 
 export async function getWidgetConfig(websiteToken: string) {
   const inbox = await findWidgetInbox(websiteToken);
+  const { listActiveOngoingCampaigns } = await import("./campaigns.js");
   return {
     website_token: inbox.websiteToken,
     inbox_name: inbox.name,
@@ -98,6 +99,7 @@ export async function getWidgetConfig(websiteToken: string) {
     working_hours_enabled: inbox.workingHoursEnabled,
     out_of_office_message: inbox.outOfOfficeMessage,
     allow_messages_after_resolved: inbox.allowMessagesAfterResolved,
+    ongoing_campaigns: await listActiveOngoingCampaigns(inbox.accountId, inbox.inboxId),
   };
 }
 

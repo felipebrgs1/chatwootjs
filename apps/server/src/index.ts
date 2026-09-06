@@ -7,14 +7,18 @@ import { logger } from "hono/logger";
 import { cableRoute, websocket } from "./cable";
 import { notFound, onError } from "./routes/v1/_helpers";
 import auth from "./routes/auth";
+import hc from "./routes/hc";
 import publicWidget from "./routes/public";
 import v1 from "./routes/v1/index";
 import {
   initJobs,
   registerAutomationListeners,
   registerAutomationSweep,
+  registerCampaignJob,
   registerContactImportJob,
   registerMacroJob,
+  registerReportingEmitters,
+  registerReportingRollup,
   registerSnoozeJob,
   registerWebhookJob,
 } from "@chatwootjs/core";
@@ -24,8 +28,11 @@ registerContactImportJob();
 registerSnoozeJob();
 registerMacroJob();
 registerWebhookJob();
+registerCampaignJob();
 registerAutomationListeners();
 registerAutomationSweep();
+registerReportingEmitters();
+registerReportingRollup();
 void initJobs();
 
 const app = new Hono();
@@ -54,6 +61,7 @@ app.get("/health", (c) => {
 
 app.route("/auth", auth);
 app.route("/api/v1", v1);
+app.route("/hc/api", hc);
 app.route("/public/api/v1/widgets", publicWidget);
 app.get("/cable", cableRoute);
 

@@ -13,12 +13,10 @@ import {
   Layers,
   LogOut,
   Megaphone,
-  MessageCircle,
   MessageSquare,
   PenLine,
   Search,
   Settings,
-  Smartphone,
   Tag,
   Users,
   Webhook,
@@ -53,6 +51,7 @@ type Availability = (typeof AVAILABILITY)[number]["value"];
 interface NavLeaf {
   label: string;
   to?: string;
+  search?: Record<string, string>;
   icon?: React.ComponentType<{ className?: string }>;
   soon?: boolean;
 }
@@ -69,7 +68,7 @@ const NAV: NavGroup[] = [
   { label: "My Inbox", icon: Inbox, to: "/app" },
   {
     label: "Conversations",
-    icon: MessageCircle,
+    icon: MessageSquare,
     to: "/app",
     defaultOpen: true,
     children: [
@@ -104,19 +103,19 @@ const NAV: NavGroup[] = [
     label: "Campaigns",
     icon: Megaphone,
     children: [
-      { label: "Ongoing", to: "/app/campaigns", icon: MessageSquare },
-      { label: "One-time", to: "/app/campaigns", icon: Smartphone },
+      {
+        label: "Live chat",
+        to: "/app/campaigns",
+        search: { type: "ongoing" },
+        icon: MessageSquare,
+      },
+      { label: "SMS", to: "/app/campaigns", search: { type: "one_off" }, icon: MessageSquare },
     ],
   },
   {
     label: "Help Center",
     icon: BookOpen,
     children: [{ label: "All Articles", to: "/app/helpcenter", icon: BookOpen }],
-  },
-  {
-    label: "Widget",
-    icon: Smartphone,
-    children: [{ label: "Preview", to: "/app/widget-preview", icon: Smartphone }],
   },
   {
     label: "Settings",
@@ -187,6 +186,13 @@ export function AppSidebar() {
     if (!to) return false;
     if (to === "/app") return activePath === "/app" || activePath === "/app/";
     return activePath === to || activePath.startsWith(`${to}/`);
+  }
+
+  function isLeafActive(leaf: NavLeaf): boolean {
+    if (!isActive(leaf.to)) return false;
+    if (!leaf.search) return true;
+    const current = location.search as Record<string, unknown>;
+    return Object.entries(leaf.search).every(([k, v]) => String(current[k] ?? "") === v);
   }
 
   function toggleGroup(label: string): void {
@@ -308,7 +314,7 @@ export function AppSidebar() {
             const hasChildren = group.children !== undefined;
             const open = openGroups[group.label] ?? false;
             const groupActive =
-              isActive(group.to) || (group.children ?? []).some((c) => isActive(c.to));
+              isActive(group.to) || (group.children ?? []).some((c) => isLeafActive(c));
             if (collapsed) {
               return (
                 <li key={group.label}>
@@ -368,7 +374,7 @@ export function AppSidebar() {
                     )}
                     {(group.children ?? []).map((leaf) => {
                       const LeafIcon = leaf.icon;
-                      const active = isActive(leaf.to);
+                      const active = isLeafActive(leaf);
                       const content = (
                         <>
                           {LeafIcon && <LeafIcon className="size-3.5 flex-shrink-0" />}
@@ -380,6 +386,7 @@ export function AppSidebar() {
                           {leaf.to && !leaf.soon ? (
                             <Link
                               to={leaf.to}
+                              search={leaf.search}
                               className={cn(
                                 "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted",
                                 active

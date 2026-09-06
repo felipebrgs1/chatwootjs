@@ -43,6 +43,8 @@ export class Widget {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private unread = 0;
   private error: string | null = null;
+  private campaignMsg: string | null = null;
+  private campaignTimer: ReturnType<typeof setTimeout> | null = null;
   private csatRating = 0;
 
   constructor(private settings: ChatwootSettings) {
@@ -99,12 +101,29 @@ export class Widget {
         // Sessão existente → thread direto; senão home (ou pré-chat).
         if (this.session?.conversation_id) this.view = "thread";
         this.render();
+        this.scheduleCampaign();
         if (this.session?.conversation_id) void this.refresh();
       })
       .catch(() => {
         this.error = this.t().couldNotLoad;
         this.render();
       });
+  }
+
+  // Campanha ongoing: apos time_on_page na URL configurada, exibe a
+  // mensagem como balao do agente na home.
+  private scheduleCampaign(): void {
+    if (this.campaignTimer) clearTimeout(this.campaignTimer);
+    const match = (this.config?.ongoing_campaigns ?? []).find((c) => {
+      const url = c.trigger_rules?.url?.trim();
+      return !url || window.location.href.includes(url);
+    });
+    if (!match) return;
+    const delay = Math.max(0, (match.trigger_rules?.time_on_page ?? 0) * 1000);
+    this.campaignTimer = setTimeout(() => {
+      this.campaignMsg = match.message;
+      this.render();
+    }, delay);
   }
 
   // ---- API pública ($chatwoot) ----
@@ -360,7 +379,10 @@ export class Widget {
         this.config.greeting_enabled && this.config.greeting_message
           ? `<div class="cw-msg agent">${esc(this.config.greeting_message)}</div>`
           : "";
-      return `<div class="cw-home">${ooo}${greeting}
+      const campaign = this.campaignMsg
+        ? `<div class="cw-msg agent cw-campaign">${esc(this.campaignMsg)}</div>`
+        : "";
+      return `<div class="cw-home">${ooo}${greeting}${campaign}
         <button class="cw-btn" data-action="start">${this.t().startConversation}</button>
         ${this.error ? `<p class="cw-error">${esc(this.error)}</p>` : ""}
       </div>`;

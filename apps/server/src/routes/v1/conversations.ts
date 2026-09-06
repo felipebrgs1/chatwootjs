@@ -9,6 +9,7 @@ import {
   SnoozeBodySchema,
   TeamBodySchema,
   ToggleStatusSchema,
+  SubmitCsatSchema,
   addParticipants,
   assignConversation,
   createConversation,
@@ -24,6 +25,7 @@ import {
   setConversationLabels,
   setConversationPriority,
   setConversationTeam,
+  submitCsat,
   toggleConversationStatus,
   uploadMessageAttachment,
 } from "@chatwootjs/core";
@@ -231,6 +233,20 @@ withConversation.post("/snooze", zValidator("json", SnoozeBodySchema), async (c)
       snoozed_until,
     );
     return ok(c, { conversation });
+  } catch (err) {
+    return fail(c, err);
+  }
+});
+
+withConversation.post("/csat", zValidator("json", SubmitCsatSchema), async (c) => {
+  try {
+    const response = await submitCsat(
+      c.var.auth.accountId,
+      c.var.auth,
+      Number(c.req.param("conversation_id")),
+      c.req.valid("json"),
+    );
+    return c.json({ data: { csat_response: response } }, 201);
   } catch (err) {
     return fail(c, err);
   }

@@ -12,14 +12,19 @@ import {
   deleteNote,
   getContact,
   getImport,
+  listContactAttachments,
+  listContactConversations,
+  listContactLabels,
   listContacts,
   listNotes,
   mergeContacts,
+  setContactLabels,
   startContactImport,
   updateContact,
 } from "@chatwootjs/core";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { z } from "zod";
 
 import type { AppEnv } from "../../middlewares/auth";
 import { authAccount } from "../../middlewares/auth";
@@ -130,6 +135,63 @@ withContact.post("/notes", zValidator("json", CreateNoteSchema), async (c) => {
     return fail(c, err);
   }
 });
+
+// ---- Histórico / Mídia / Etiquetas (página "ver contato") ----
+
+withContact.get("/conversations", async (c) => {
+  try {
+    return ok(c, {
+      conversations: await listContactConversations(
+        c.var.auth.accountId,
+        Number(c.req.param("contact_id")),
+      ),
+    });
+  } catch (err) {
+    return fail(c, err);
+  }
+});
+
+withContact.get("/attachments", async (c) => {
+  try {
+    return ok(c, {
+      attachments: await listContactAttachments(
+        c.var.auth.accountId,
+        Number(c.req.param("contact_id")),
+      ),
+    });
+  } catch (err) {
+    return fail(c, err);
+  }
+});
+
+withContact.get("/labels", async (c) => {
+  try {
+    return ok(c, {
+      labels: await listContactLabels(c.var.auth.accountId, Number(c.req.param("contact_id"))),
+    });
+  } catch (err) {
+    return fail(c, err);
+  }
+});
+
+withContact.post(
+  "/labels",
+  zValidator("json", z.object({ labels: z.array(z.string()) })),
+  async (c) => {
+    try {
+      const { labels } = c.req.valid("json");
+      return ok(c, {
+        labels: await setContactLabels(
+          c.var.auth.accountId,
+          Number(c.req.param("contact_id")),
+          labels,
+        ),
+      });
+    } catch (err) {
+      return fail(c, err);
+    }
+  },
+);
 
 withContact.delete("/notes/:note_id", async (c) => {
   try {

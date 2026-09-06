@@ -44,6 +44,7 @@ export const contacts = pgTable(
     location: varchar("location", { length: 255 }).notNull().default(""),
     countryCode: varchar("country_code", { length: 255 }).notNull().default(""),
     blocked: boolean("blocked").notNull().default(false),
+    companyId: integer("company_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -56,6 +57,7 @@ export const contacts = pgTable(
       table.lastActivityAt,
     ),
     index("index_contacts_on_phone_number_and_account_id").on(table.phoneNumber, table.accountId),
+    index("index_contacts_on_company_id").on(table.companyId),
   ],
 );
 

@@ -50,6 +50,13 @@
       "when": 1788723382883,
       "tag": "0006_sad_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788734339763,
+      "tag": "0007_icy_excalibur",
+      "breakpoints": true
     }
   ]
 }

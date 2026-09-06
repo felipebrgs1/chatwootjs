@@ -2,6 +2,7 @@ import {
   AtSign,
   BarChart3,
   BookOpen,
+  Building2,
   Check,
   ChevronDown,
   ChevronRight,
@@ -215,8 +216,15 @@ export function AppSidebar() {
     {
       label: "Contatos",
       icon: Contact,
+      to: "/app/contacts",
       defaultOpen: true,
       children: [{ label: "Todos os contatos", to: "/app/contacts", icon: Contact }],
+    },
+    {
+      label: "Empresas",
+      icon: Building2,
+      to: "/app/companies",
+      children: [{ label: "Todas as empresas", to: "/app/companies", icon: Building2 }],
     },
     {
       label: "Relatórios",

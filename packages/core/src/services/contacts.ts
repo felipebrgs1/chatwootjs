@@ -1,11 +1,15 @@
 import {
+  attachments,
   contactInboxes,
   contacts,
+  conversations,
   customAttributeDefinitions,
   dataImportErrors,
   dataImports,
   db,
+  inboxes,
   labels,
+  messages,
   notes,
   taggings,
   type Contact,
@@ -16,6 +20,7 @@ import { jobs } from "../jobs/index.js";
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
 import { ATTRIBUTE_TYPES } from "../schemas/contacts.js";
+import { STATUS_FROM_INT } from "../schemas/conversations.js";
 import type {
   ContactsQuery,
   CreateContactInput,
@@ -90,6 +95,8 @@ export interface ApiContact {
   identifier: string | null;
   location: string;
   country_code: string;
+  company_id: number | null;
+  company: { id: number; name: string; domain: string | null } | null;
   last_name: string;
   middle_name: string;
   blocked: boolean;
@@ -115,6 +122,8 @@ function toApiContact(row: Contact): ApiContact {
     middle_name: row.middleName,
     blocked: row.blocked,
     contact_type: row.contactType,
+    company_id: row.companyId,
+    company: null,
     custom_attributes: row.customAttributes ?? {},
     additional_attributes: row.additionalAttributes ?? {},
     last_activity_at: row.lastActivityAt?.toISOString() ?? null,
@@ -174,16 +183,23 @@ export async function listContacts(
   const [agg] = await db.select({ value: count() }).from(contacts).where(where);
   const total = Number(agg?.value ?? 0);
 
+  // Prefixo `-` inverte a direção (convenção do Rails: sort=-name).
+  const sortDesc = query.sort?.startsWith("-") ?? false;
+  const sortField = query.sort?.replace(/^-/, "");
+  const dir = (column: Parameters<typeof asc>[0], defaultDesc: boolean) => {
+    const descending = query.sort === undefined ? defaultDesc : sortDesc;
+    return descending ? desc(column) : asc(column);
+  };
   const orderBy =
-    query.sort === "name"
-      ? asc(contacts.name)
-      : query.sort === "email"
-        ? asc(contacts.email)
-        : query.sort === "phone_number"
-          ? asc(contacts.phoneNumber)
-          : query.sort === "created_at"
-            ? desc(contacts.createdAt)
-            : desc(contacts.lastActivityAt);
+    sortField === "name"
+      ? dir(contacts.name, false)
+      : sortField === "email"
+        ? dir(contacts.email, false)
+        : sortField === "phone_number"
+          ? dir(contacts.phoneNumber, false)
+          : sortField === "created_at"
+            ? dir(contacts.createdAt, true)
+            : dir(contacts.lastActivityAt, true);
 
   const rows = await db
     .select()
@@ -193,8 +209,27 @@ export async function listContacts(
     .limit(query.per_page)
     .offset((query.page - 1) * query.per_page);
 
+  const data = rows.map(toApiContact);
+  // Anexa a empresa (join em lote) para exibir o nome no card.
+  const companyIds = [
+    ...new Set(data.map((c) => c.company_id).filter((v): v is number => v !== null)),
+  ];
+  if (companyIds.length > 0) {
+    const companyRows = await db.query.companies.findMany({
+      where: (c) => and(eq(c.accountId, accountId), inArray(c.id, companyIds)),
+    });
+    const byId = new Map(companyRows.map((c) => [c.id, c]));
+    for (const item of data) {
+      if (item.company_id !== null) {
+        const company = byId.get(item.company_id);
+        item.company = company
+          ? { id: company.id, name: company.name, domain: company.domain }
+          : null;
+      }
+    }
+  }
   return {
-    data: rows.map(toApiContact),
+    data,
     meta: {
       count: total,
       current_page: query.page,
@@ -230,8 +265,21 @@ export async function getContact(
     api.contact_inboxes = (
       await db.query.contactInboxes.findMany({ where: (ci) => eq(ci.contactId, contactId) })
     ).map((ci) => ({ id: ci.id, inbox_id: ci.inboxId, source_id: ci.sourceId }));
+    if (row.companyId) {
+      const company = await db.query.companies.findFirst({
+        where: (c) => and(eq(c.accountId, accountId), eq(c.id, row.companyId!)),
+      });
+      api.company = company ? { id: company.id, name: company.name, domain: company.domain } : null;
+    }
   }
   return api;
+}
+
+async function assertCompanyInAccount(accountId: number, companyId: number): Promise<void> {
+  const company = await db.query.companies.findFirst({
+    where: (c) => and(eq(c.accountId, accountId), eq(c.id, companyId)),
+  });
+  if (!company) throw new NotFoundError("Company not found");
 }
 
 // ---- Mutação ----
@@ -252,12 +300,16 @@ export async function createContact(auth: AuthCtx, input: CreateContactInput): P
       throw new UnprocessableError("Invalid custom attributes", errors);
     }
   }
+  if (input.company_id !== undefined && input.company_id !== null) {
+    await assertCompanyInAccount(auth.accountId, input.company_id);
+  }
   const [row] = await db
     .insert(contacts)
     .values({
       accountId: auth.accountId,
       name: input.name ?? "",
       email: email ?? null,
+      companyId: input.company_id ?? null,
       phoneNumber: input.phone_number || null,
       identifier: input.identifier || null,
       location: input.location ?? "",
@@ -304,6 +356,12 @@ export async function updateContact(
   if (input.last_name !== undefined) patch.lastName = input.last_name;
   if (input.middle_name !== undefined) patch.middleName = input.middle_name;
   if (input.blocked !== undefined) patch.blocked = input.blocked;
+  if (input.company_id !== undefined) {
+    if (input.company_id !== null) {
+      await assertCompanyInAccount(auth.accountId, input.company_id);
+    }
+    patch.companyId = input.company_id;
+  }
   if (input.custom_attributes !== undefined) {
     const errors = await validateCustomAttributes(auth.accountId, 0, input.custom_attributes);
     if (Object.keys(errors).length > 0) {
@@ -864,3 +922,159 @@ export function registerContactImportJob(): void {
 }
 
 export { ATTRIBUTE_TYPES };
+
+// ---- Detalhe do contato (abas da página "ver contato") ----
+
+export interface ContactHistoryItem {
+  id: number;
+  display_id: number;
+  status: string;
+  inbox_id: number;
+  inbox_name: string | null;
+  last_activity_at: string | null;
+  preview: string | null;
+}
+
+/** Conversas do contato (aba Histórico) — espelha contacts/conversations do Rails. */
+export async function listContactConversations(
+  accountId: number,
+  contactId: number,
+): Promise<ContactHistoryItem[]> {
+  await getContact(accountId, contactId);
+  const rows = await db
+    .select()
+    .from(conversations)
+    .where(and(eq(conversations.accountId, accountId), eq(conversations.contactId, contactId)))
+    .orderBy(desc(conversations.lastActivityAt))
+    .limit(50);
+  const inboxIds = [...new Set(rows.map((r) => r.inboxId))];
+  const inboxRows =
+    inboxIds.length > 0 ? await db.select().from(inboxes).where(inArray(inboxes.id, inboxIds)) : [];
+  const inboxById = new Map(inboxRows.map((i) => [i.id, i]));
+  const items: ContactHistoryItem[] = [];
+  for (const row of rows) {
+    const [last] = await db
+      .select({ content: messages.content })
+      .from(messages)
+      .where(eq(messages.conversationId, row.id))
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+    items.push({
+      id: row.id,
+      display_id: row.displayId,
+      status: STATUS_FROM_INT[row.status] ?? "open",
+      inbox_id: row.inboxId,
+      inbox_name: inboxById.get(row.inboxId)?.name ?? null,
+      last_activity_at: row.lastActivityAt?.toISOString() ?? null,
+      preview: last?.content?.slice(0, 120) ?? null,
+    });
+  }
+  return items;
+}
+
+const ATTACHMENT_TYPES = ["image", "audio", "video", "file"] as const;
+
+export interface ContactAttachmentItem {
+  id: number;
+  file_type: (typeof ATTACHMENT_TYPES)[number];
+  external_url: string | null;
+  fallback_title: string | null;
+  extension: string | null;
+  created_at: string;
+  message_id: number;
+  conversation_id: number;
+}
+
+/** Anexos das conversas do contato (aba Mídia) — espelha contacts/attachments do Rails. */
+export async function listContactAttachments(
+  accountId: number,
+  contactId: number,
+): Promise<ContactAttachmentItem[]> {
+  await getContact(accountId, contactId);
+  const rows = await db
+    .select({
+      attachment: attachments,
+      conversationId: conversations.id,
+    })
+    .from(attachments)
+    .innerJoin(messages, eq(messages.id, attachments.messageId))
+    .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .where(and(eq(attachments.accountId, accountId), eq(conversations.contactId, contactId)))
+    .orderBy(desc(attachments.createdAt))
+    .limit(100);
+  return rows.map((r) => ({
+    id: r.attachment.id,
+    file_type: ATTACHMENT_TYPES[r.attachment.fileType] ?? "file",
+    external_url: r.attachment.externalUrl,
+    fallback_title: r.attachment.fallbackTitle,
+    extension: r.attachment.extension,
+    created_at: r.attachment.createdAt.toISOString(),
+    message_id: r.attachment.messageId,
+    conversation_id: r.conversationId,
+  }));
+}
+
+/** Etiquetas do contato (espelha contacts/labels do Rails). */
+export async function listContactLabels(accountId: number, contactId: number): Promise<ApiLabel[]> {
+  await getContact(accountId, contactId);
+  const tagRows = await db
+    .select({ label: labels })
+    .from(taggings)
+    .innerJoin(labels, eq(labels.id, taggings.tagId))
+    .where(
+      and(
+        eq(taggings.accountId, accountId),
+        eq(taggings.taggableType, "Contact"),
+        eq(taggings.taggableId, contactId),
+        eq(taggings.context, "labels"),
+      ),
+    );
+  return tagRows.map((r) => toApiLabel(r.label));
+}
+
+/** Substitui o conjunto de etiquetas (toggle do dropdown = add/remove). */
+export async function setContactLabels(
+  accountId: number,
+  contactId: number,
+  titles: string[],
+): Promise<string[]> {
+  await getContact(accountId, contactId);
+  const existing = await db.query.labels.findMany({
+    where: (l) => eq(l.accountId, accountId),
+  });
+  const byTitle = new Map(existing.map((l) => [l.title, l]));
+  const normalized = [...new Set(titles.map((t) => t.trim().toLowerCase()).filter(Boolean))];
+  const labelIds: number[] = [];
+  for (const title of normalized) {
+    let label = byTitle.get(title);
+    if (!label) {
+      const [created] = await db.insert(labels).values({ accountId, title }).returning();
+      if (!created) continue;
+      label = created;
+    }
+    labelIds.push(label.id);
+  }
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(taggings)
+      .where(
+        and(
+          eq(taggings.accountId, accountId),
+          eq(taggings.taggableType, "Contact"),
+          eq(taggings.taggableId, contactId),
+        ),
+      );
+    if (labelIds.length > 0) {
+      await tx.insert(taggings).values(
+        labelIds.map((tagId) => ({
+          tagId,
+          taggableType: "Contact",
+          taggableId: contactId,
+          accountId,
+          context: "labels",
+        })),
+      );
+    }
+  });
+  return normalized;
+}

@@ -118,6 +118,30 @@ export type {
   UpdateContactInput,
 } from "./schemas/contacts.js";
 export {
+  CompaniesQuerySchema,
+  CompanyContactBodySchema,
+  CreateCompanySchema,
+  UpdateCompanySchema,
+} from "./schemas/companies.js";
+export type {
+  CompaniesQuery,
+  CreateCompanyInput,
+  UpdateCompanyInput,
+} from "./schemas/companies.js";
+export {
+  addCompanyContact,
+  createCompany,
+  deleteCompany,
+  getCompany,
+  listCompanies,
+  listCompanyContacts,
+  listCompanyConversations,
+  listCompanyNotes,
+  removeCompanyContact,
+  updateCompany,
+} from "./services/companies.js";
+export type { ApiCompany, CompanyContactItem, CompanyNoteItem } from "./services/companies.js";
+export {
   addInboxMembers,
   assertInboxAccess,
   createInbox,
@@ -148,19 +172,30 @@ export {
   deleteNote,
   getContact,
   getImport,
+  listContactAttachments,
+  listContactConversations,
+  listContactLabels,
   listContacts,
   listCustomAttributes,
   listLabels,
   listNotes,
   mergeContacts,
   registerContactImportJob,
+  setContactLabels,
   startContactImport,
   updateContact,
   updateCustomAttribute,
   updateLabel,
   validateCustomAttributes,
 } from "./services/contacts.js";
-export type { ApiContact, ApiCustomAttribute, ApiLabel, ApiNote } from "./services/contacts.js";
+export type {
+  ApiContact,
+  ApiCustomAttribute,
+  ApiLabel,
+  ApiNote,
+  ContactAttachmentItem,
+  ContactHistoryItem,
+} from "./services/contacts.js";
 export {
   CONVERSATION_PRIORITIES,
   CONVERSATION_STATUSES,

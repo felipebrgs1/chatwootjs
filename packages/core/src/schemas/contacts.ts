@@ -23,7 +23,11 @@ export const ContactsQuerySchema = z.preprocess(
   z.object({
     q: z.string().trim().optional(),
     labels: z.array(z.string().trim()).optional(),
-    sort: z.enum(["name", "email", "phone_number", "last_activity_at", "created_at"]).optional(),
+    // Direção estilo Rails: prefixo `-` inverte (ex. `-name` = nome desc).
+    sort: z
+      .string()
+      .regex(/^-?(name|email|phone_number|last_activity_at|created_at)$/)
+      .optional(),
     page: z.coerce.number().int().min(1).default(1),
     per_page: z.coerce.number().int().min(1).max(100).default(15),
   }),
@@ -41,6 +45,7 @@ export const CreateContactSchema = z.object({
   last_name: z.string().optional(),
   middle_name: z.string().optional(),
   blocked: z.boolean().optional(),
+  company_id: z.number().int().positive().nullish(),
   custom_attributes: z.record(z.string(), z.unknown()).optional(),
   additional_attributes: z.record(z.string(), z.unknown()).optional(),
 });
@@ -57,6 +62,7 @@ export const UpdateContactSchema = z.object({
   last_name: z.string().optional(),
   middle_name: z.string().optional(),
   blocked: z.boolean().optional(),
+  company_id: z.number().int().positive().nullish(),
   custom_attributes: z.record(z.string(), z.unknown()).optional(),
   additional_attributes: z.record(z.string(), z.unknown()).optional(),
 });

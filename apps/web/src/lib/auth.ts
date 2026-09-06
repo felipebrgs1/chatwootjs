@@ -98,11 +98,16 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   const body = (await res.json()) as {
     data: T;
+    meta?: Record<string, unknown>;
     error?: string;
     attributes?: Record<string, string[]>;
   };
   if (!res.ok) {
     throw new ApiError(res.status, body.error ?? "Erro inesperado", body.attributes);
+  }
+  // Preserva o `meta` do Rails (`{ data, meta }`) junto ao payload.
+  if (body.meta && typeof body.data === "object" && body.data !== null) {
+    return { ...(body.data as Record<string, unknown>), meta: body.meta } as T;
   }
   return body.data;
 }

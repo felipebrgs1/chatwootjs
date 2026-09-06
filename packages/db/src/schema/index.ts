@@ -3,6 +3,7 @@ export * from "./channels";
 export * from "./inboxes";
 export * from "./inbox-members";
 export * from "./contacts";
+export * from "./companies";
 export * from "./labels";
 export * from "./data-imports";
 export * from "./conversations";

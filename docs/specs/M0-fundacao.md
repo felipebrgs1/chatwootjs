@@ -19,7 +19,7 @@ seed mínimo e shell do dashboard. **Nada de tRPC no domínio Chatwoot.**
       (`admin@demo.test` / `password123`), 1 inbox Website, 3 contatos,
       5 conversas com mensagens. Rodar via `bun run --cwd packages/db src/seed.ts`
       (adicionar script `db:seed` no root `package.json`).
-- [ ] Adicionar script root: `"db:seed": "turbo run db:seed -F @my-better-t-app/db"`.
+- [ ] Adicionar script root: `"db:seed": "turbo run db:seed -F @chatwootjs/db"`.
 
 ## 4. API (`apps/server` + `packages/core` NOVO)
 
@@ -55,11 +55,10 @@ packages/core/
 
 - [ ] `packages/ui`: adicionar tokens Woot em `src/styles/globals.css`
       (`--woot-blue #1F93FF`, rail `#1F2937`, bg `#F9FAFB`, radius 8, fonte Inter) + componentes `WootAvatar`, `StatusBadge`, `PriorityBadge`, `EmptyState`.
-- [ ] App shell `_auth` (`apps/web/src/routes/_auth.tsx`): icon rail 56px
-      (logo, Conversas, Contatos, Relatórios, Campanhas, Central, Config, sino,
-      avatar) + `<Outlet/>`. Dados mockados por enquanto.
+- [x] App shell `_auth` (`apps/web/src/routes/_auth.tsx`): `AppSidebar` branca estilo Chatwoot v4
+      (account switcher, busca ⌘K, árvore de navegação, perfil com disponibilidade) + `<Outlet/>`. Sem rail escuro (era o visual do Chatwoot v3). Verificado com screenshots em `shots/` (`bun scripts/shot.mjs`).
 - [ ] `useCable(accountId)` hook stub em `apps/web/src/hooks/use-cable.ts`
-      (conecta em `/cable`, reconecta com backoff, retorna `{ connected }`).
+      (conecta em `/cable`, reconecta com backoff).
 
 ## 6. Aceite
 
@@ -67,7 +66,7 @@ packages/core/
 - [ ] `GET /health` → 200 `{ ok: true }`.
 - [ ] `GET /api/v1/accounts/1/conversations` com `Bearer demo-token` → 200
       (array vazio ou seed); sem token → 401.
-- [ ] Dashboard abre com rail + sidebar mock, tema claro igual Chatwoot.
+- [x] Dashboard abre com sidebar v4 + lista de conversas, tema claro igual Chatwoot.
 - [ ] `bun run check-types` passa.
 
 ## 7. Done (PR M0)

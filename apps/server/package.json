@@ -10,18 +10,18 @@
     "start": "bun run dist/index.mjs"
   },
   "dependencies": {
+    "@chatwootjs/api": "workspace:*",
     "@chatwootjs/core": "workspace:*",
+    "@chatwootjs/db": "workspace:*",
     "@hono/trpc-server": "^0.4.2",
     "@hono/zod-validator": "^0.9.1",
-    "@my-better-t-app/api": "workspace:*",
-    "@my-better-t-app/db": "workspace:*",
     "@trpc/server": "catalog:",
     "drizzle-orm": "^0.45.2",
     "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@my-better-t-app/config": "workspace:*",
+    "@chatwootjs/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.22.14",
     "typescript": "catalog:"

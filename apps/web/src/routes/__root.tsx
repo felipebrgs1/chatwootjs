@@ -1,4 +1,4 @@
-import { Toaster } from "@my-better-t-app/ui/components/sonner";
+import { Toaster } from "@chatwootjs/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";

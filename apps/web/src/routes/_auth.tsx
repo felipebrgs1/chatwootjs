@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 
-import { AppRail } from "@/components/app-rail";
+import { AppSidebar } from "@/components/app-sidebar";
 import { SessionProvider } from "@/components/session-provider";
 import { getAccessToken } from "@/lib/auth";
 
@@ -13,12 +13,12 @@ export const Route = createFileRoute("/_auth")({
   component: AuthLayout,
 });
 
-/** Shell autenticado: icon rail 56px + conteúdo. */
+/** Shell autenticado: sidebar Chatwoot + conteúdo. */
 function AuthLayout() {
   return (
     <SessionProvider>
-      <div className="flex h-svh bg-woot-bg">
-        <AppRail />
+      <div className="flex h-svh bg-background">
+        <AppSidebar />
         <div className="flex min-w-0 flex-1">
           <Outlet />
         </div>

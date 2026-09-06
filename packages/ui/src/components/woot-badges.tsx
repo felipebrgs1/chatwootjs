@@ -1,4 +1,4 @@
-import { cn } from "@my-better-t-app/ui/lib/utils";
+import { cn } from "@chatwootjs/ui/lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",

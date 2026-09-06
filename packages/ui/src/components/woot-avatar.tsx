@@ -1,4 +1,4 @@
-import { cn } from "@my-better-t-app/ui/lib/utils";
+import { cn } from "@chatwootjs/ui/lib/utils";
 
 const COLORS = [
   "bg-blue-500",

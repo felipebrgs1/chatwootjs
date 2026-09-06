@@ -15,13 +15,13 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
-    "@my-better-t-app/db": "workspace:*",
+    "@chatwootjs/db": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@my-better-t-app/config": "workspace:*",
+    "@chatwootjs/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

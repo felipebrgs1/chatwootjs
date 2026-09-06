@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
-import { cn } from "@my-better-t-app/ui/lib/utils";
+import { cn } from "@chatwootjs/ui/lib/utils";
 
 export function AuthCard({
   title,

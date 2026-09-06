@@ -1,4 +1,4 @@
-import { accessTokens, accountUsers, accounts, db, users } from "@my-better-t-app/db";
+import { accessTokens, accountUsers, accounts, db, users } from "@chatwootjs/db";
 import { and, eq } from "drizzle-orm";
 
 import { NotFoundError, UnauthorizedError, UnprocessableError } from "../lib/errors.js";

@@ -1,5 +1,5 @@
 {
-  "name": "@my-better-t-app/api",
+  "name": "@chatwootjs/api",
   "type": "module",
   "exports": {
     ".": {
@@ -11,13 +11,13 @@
   },
   "scripts": {},
   "dependencies": {
-    "@my-better-t-app/db": "workspace:*",
+    "@chatwootjs/db": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@my-better-t-app/config": "workspace:*",
+    "@chatwootjs/config": "workspace:*",
     "hono": "catalog:",
     "typescript": "catalog:"
   }

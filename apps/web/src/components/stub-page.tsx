@@ -1,4 +1,4 @@
-import { EmptyState } from "@my-better-t-app/ui/components/empty-state";
+import { EmptyState } from "@chatwootjs/ui/components/empty-state";
 
 export interface StubPageProps {
   title: string;

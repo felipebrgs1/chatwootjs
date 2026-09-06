@@ -1,10 +1,10 @@
-import { cn } from "@my-better-t-app/ui/lib/utils";
+import { cn } from "@chatwootjs/ui/lib/utils";
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-none bg-muted", className)}
+      className={cn("animate-pulse rounded-lg bg-muted", className)}
       {...props}
     />
   );

@@ -3,9 +3,9 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Button } from "@my-better-t-app/ui/components/button";
-import { Input } from "@my-better-t-app/ui/components/input";
-import { Label } from "@my-better-t-app/ui/components/label";
+import { Button } from "@chatwootjs/ui/components/button";
+import { Input } from "@chatwootjs/ui/components/input";
+import { Label } from "@chatwootjs/ui/components/label";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useSessionContext } from "@/components/session-provider";
@@ -65,7 +65,7 @@ function GeneralSettings() {
               id="locale"
               disabled={!isAdmin}
               {...form.register("locale")}
-              className="rounded-md border px-2 py-1.5"
+              className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
             >
               <option value="pt_BR">Português (BR)</option>
               <option value="en">English</option>

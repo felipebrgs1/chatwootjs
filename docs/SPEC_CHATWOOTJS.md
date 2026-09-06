@@ -105,19 +105,26 @@ Portar estes fluxos (nomes iguais ao Rails/Vue):
 
 ## 5. Frontend 1:1 (parecer Chatwoot)
 
-### 5.1 Layout (obrigatório)
+### 5.1 Layout (obrigatório — Chatwoot v4, ver `chatwoot/.github/screenshots/dashboard.png`)
 
 ```
-+--------+-----------+--------------+----------------+-----------+
-| icon   | account   | conversation | message thread | details   |
-| rail   | sidebar   | list         |                | (contact/ |
-| 56px   | 220px     | 320px        | flex-1         | previous/ |
-| dark   | light     | light        | white          | actions)  |
-+--------+-----------+--------------+----------------+-----------+
++------------------+----------------+----------------+-----------+
+| sidebar branca   | conversation   | message thread | details   |
+| 200px (resize    | list           |                | (contact/ |
+| 56–320, colapsa  | 320px          | flex-1         | previous/ |
+| p/ ícones)       |                |                | actions)  |
++------------------+----------------+----------------+-----------+
 ```
 
-- **Icon rail (sempre):** logo, Conversas, Contatos, Relatórios, Campanhas, Central de ajuda, Configurações (engrenagem embaixo), sino, avatar/availability. Igual `chatwoot/app/javascript/dashboard/components/layout`.
-- **Account sidebar:** seletor de conta, search `⌘K`, menu contextual por seção (ex.: Settings lista: General, Agents, Inboxes, Labels, Teams...).
+- **Sidebar (branca, NÃO rail escuro — o rail era o Chatwoot v3):** topo com
+  logo + divisor + account switcher (dropdown com check), linha de busca
+  (`Buscar...` + `⌘K`) + botão compor; árvore de navegação com grupos colapsáveis
+  (My Inbox; Conversations > All/Mentions/Unattended; Folders; Teams; Channels;
+  Labels; Contacts; Reports; Campaigns; Help Center; Settings) com item ativo em
+  fundo azul-claro + texto azul; rodapé com perfil (avatar + nome + e-mail +
+  dot de disponibilidade) e dropdown (disponibilidade, sair). Redimensionável
+  por arrasto (56–320px, colapsa p/ ícones abaixo de 120px, duplo-clique reseta),
+  largura persistida em `localStorage`. Ref: `chatwoot/.../components-next/sidebar/Sidebar.vue`.
 - **Conversation list:** search, chips de status (Open/Pending/Resolved/Snoozed/All), filtros avançados (saved views `custom_filters`), cards com avatar, preview, badges (inbox icon, priority, unread count, waiting since amarelo/vermelho).
 - **Thread:** header (contato + inbox + ID + actions: assign/team/priority/snooze/more), bolhas (incoming cinza esquerda, outgoing azul direita ou branco conforme tema Chatwoot v4), private notes amarelas, activity cinza centralizada, editor rico embaixo com tabs Reply/Private note, canned `//`, emoji, attach, áudio, templates.
 - **Details:** tabs Contact / Previous conversations / Actions (macros, labels, custom attributes, participants).
@@ -154,7 +161,7 @@ Cada rota: loader valida `accountId` + prefetch Query; `notFound` → redirect d
 - Remover/congelar tRPC do domínio (manter só `GET /health`); criar `packages/core/{services,policies,jobs,mailers,realtime}` + `apps/server/src/{routes,middlewares,cable}.ts`.
 - Drizzle base: `db client`, `migrate`, `seed:minimal` (1 conta demo, 1 admin, 1 inbox website).
 - `packages/ui`: tokens Woot (cores Chatwoot, `Button/Badge/Avatar/Tooltip/Dropdown/Sheet/Dialog/Input/Editor`), `Toaster`, `EmptyState`, `WootAvatar`, `StatusBadge`, `PriorityBadge`.
-- App shell `_auth` com icon rail + account switcher mockado.
+- App shell `_auth` com sidebar branca v4 (`AppSidebar`) + esqueleto da lista de conversas.
 - **Aceite:** `bun dev` sobe web+server+db; `GET /health` 200; seed loga no dashboard mock.
 
 ### M1 — Auth, Accounts, Users, Roles
@@ -304,7 +311,7 @@ export const Route = createFileRoute("...")({
 
 ## 9. Critérios visuais (front "parecido com Chatwoot")
 
-- Copiar espaçamentos/cores do `chatwoot/app/javascript/dashboard/assets/scss` e `WootUI`: rail `#1F2937`, fundo `#F9FAFB`, cards brancos `rounded-lg border`, azul `#1F93FF` para outgoing/primário.
+- Sidebar branca estilo v4 (seção 5.1): fundo `bg-background`, borda `border-border`, item ativo `bg-woot-nav-active-bg + text-woot-blue`, fonte system stack (Chatwoot NÃO usa Inter).
 - Ícones Lucide com mesmos nomes semânticos (inbox, users, bar-chart, megaphone, book, settings, bell).
 - Tabelas com mesma coluna/ordem; dialogs/sheets com mesmos títulos/botões (em pt-BR/en).
 - Validação: screenshot side-by-side com Chatwoot original anexado no PR de cada módulo.

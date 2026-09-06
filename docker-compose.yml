@@ -1,4 +1,4 @@
-name: my-better-t-app
+name: chatwootjs
 
 services:
   web:
@@ -34,7 +34,7 @@ services:
     environment:
       # Dentro do compose o banco atende pelo host `postgres` (não localhost).
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/my-better-t-app
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/chatwootjs
     healthcheck:
       test:
         [
@@ -54,15 +54,15 @@ services:
 
   postgres:
     image: postgres:18
-    container_name: my-better-t-app-postgres
+    container_name: chatwootjs-postgres
     environment:
-      POSTGRES_DB: my-better-t-app
+      POSTGRES_DB: chatwootjs
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
       - "5432:5432"
     volumes:
-      - my-better-t-app_postgres_data:/var/lib/postgresql
+      - chatwootjs_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -71,4 +71,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  my-better-t-app_postgres_data:
+  chatwootjs_postgres_data:

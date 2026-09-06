@@ -1,5 +1,5 @@
 {
-  "name": "@my-better-t-app/db",
+  "name": "@chatwootjs/db",
   "type": "module",
   "exports": {
     ".": {
@@ -23,7 +23,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@my-better-t-app/config": "workspace:*",
+    "@chatwootjs/config": "workspace:*",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "catalog:"

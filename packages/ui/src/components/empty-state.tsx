@@ -1,4 +1,4 @@
-import { cn } from "@my-better-t-app/ui/lib/utils";
+import { cn } from "@chatwootjs/ui/lib/utils";
 
 export interface EmptyStateProps {
   icon?: React.ReactNode;

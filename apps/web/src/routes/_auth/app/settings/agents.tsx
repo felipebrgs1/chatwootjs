@@ -4,13 +4,13 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { Button } from "@my-better-t-app/ui/components/button";
-import { Input } from "@my-better-t-app/ui/components/input";
-import { Label } from "@my-better-t-app/ui/components/label";
+import { Button } from "@chatwootjs/ui/components/button";
+import { Input } from "@chatwootjs/ui/components/input";
+import { Label } from "@chatwootjs/ui/components/label";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useSessionContext } from "@/components/session-provider";
-import { WootAvatar } from "@my-better-t-app/ui/components/woot-avatar";
+import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { ApiError, apiFetch } from "@/lib/auth";
 
 export const Route = createFileRoute("/_auth/app/settings/agents")({
@@ -133,7 +133,11 @@ function AgentsSettings() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="role">Papel</Label>
-            <select id="role" {...form.register("role")} className="rounded-md border px-2 py-1.5">
+            <select
+              id="role"
+              {...form.register("role")}
+              className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+            >
               <option value="agent">Agente</option>
               <option value="administrator">Administrador</option>
             </select>
@@ -181,7 +185,7 @@ function AgentsSettings() {
                       <select
                         value={agent.role}
                         onChange={(e) => void changeRole(agent.id, e.target.value as Role)}
-                        className="rounded-md border px-2 py-1 text-xs"
+                        className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
                       >
                         <option value="agent">Agente</option>
                         <option value="administrator">Administrador</option>

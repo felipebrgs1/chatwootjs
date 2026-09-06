@@ -1,5 +1,5 @@
 {
-  "name": "my-better-t-app",
+  "name": "chatwootjs",
   "private": true,
   "workspaces": {
     "packages": [
@@ -30,11 +30,11 @@
     "check-types": "turbo run check-types",
     "dev:web": "turbo run dev -F web --",
     "dev:server": "turbo run dev -F server --",
-    "db:seed": "turbo run db:seed -F @my-better-t-app/db --",
-    "db:push": "turbo run db:push -F @my-better-t-app/db --",
-    "db:studio": "turbo run db:studio -F @my-better-t-app/db --",
-    "db:generate": "turbo run db:generate -F @my-better-t-app/db --",
-    "db:migrate": "turbo run db:migrate -F @my-better-t-app/db --",
+    "db:seed": "turbo run db:seed -F @chatwootjs/db --",
+    "db:push": "turbo run db:push -F @chatwootjs/db --",
+    "db:studio": "turbo run db:studio -F @chatwootjs/db --",
+    "db:generate": "turbo run db:generate -F @chatwootjs/db --",
+    "db:migrate": "turbo run db:migrate -F @chatwootjs/db --",
     "db:start": "docker compose up -d postgres",
     "db:watch": "docker compose up postgres",
     "db:stop": "docker compose stop postgres",
@@ -49,10 +49,11 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@my-better-t-app/config": "workspace:*",
+    "@chatwootjs/config": "workspace:*",
     "@types/bun": "catalog:",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
+    "playwright-core": "^1.63.0",
     "turbo": "^2.10.12",
     "typescript": "catalog:"
   },

@@ -4,9 +4,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { Button } from "@my-better-t-app/ui/components/button";
-import { Input } from "@my-better-t-app/ui/components/input";
-import { Label } from "@my-better-t-app/ui/components/label";
+import { Button } from "@chatwootjs/ui/components/button";
+import { Input } from "@chatwootjs/ui/components/input";
+import { Label } from "@chatwootjs/ui/components/label";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AuthCard, AuthFooterLink } from "@/components/auth-card";

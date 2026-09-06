@@ -7,6 +7,7 @@ import { Input } from "@chatwootjs/ui/components/input";
 import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
+import { WootSelectMenu } from "@/components/woot-select-menu";
 import { ApiError, apiFetch } from "@/lib/auth";
 import type { ConversationDetail } from "@/lib/conversations";
 import { assignConversation, setLabels, setPriority } from "@/lib/conversations";
@@ -298,48 +299,34 @@ function ConversationActions({
 
   return (
     <div className="grid gap-3">
-      <div className="grid gap-1">
-        <label htmlFor="a-assignee" className="text-xs text-woot-slate-11">
-          Agente responsável
-        </label>
-        <select
-          id="a-assignee"
-          value={conversation.assignee_id ?? 0}
-          onChange={(e) =>
-            void run(() => assignConversation(accountId, conversation.id, Number(e.target.value)))
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-sm text-woot-slate-12">Agente responsável</span>
+        <WootSelectMenu
+          value={String(conversation.assignee_id ?? 0)}
+          options={[
+            { value: "0", label: "Ninguém" },
+            ...agents.map((agent) => ({ value: String(agent.id), label: agent.name })),
+          ]}
+          onChange={(v) =>
+            void run(() => assignConversation(accountId, conversation.id, Number(v)))
           }
-          className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
-        >
-          <option value={0}>Ninguém</option>
-          {agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
-      <div className="grid gap-1">
-        <label htmlFor="a-team" className="text-xs text-woot-slate-11">
-          Time
-        </label>
-        <select
-          id="a-team"
-          value={conversation.team_id ?? 0}
-          onChange={(e) =>
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-sm text-woot-slate-12">Time</span>
+        <WootSelectMenu
+          value={String(conversation.team_id ?? 0)}
+          options={[
+            { value: "0", label: "Sem time" },
+            ...teams.map((t) => ({ value: String(t.id), label: t.name })),
+          ]}
+          onChange={(v) =>
             void run(async () => {
-              await setConversationTeam(accountId, conversation.id, Number(e.target.value) || null);
+              await setConversationTeam(accountId, conversation.id, Number(v) || null);
               return fetchFresh(accountId, conversation.id);
             })
           }
-          className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
-        >
-          <option value={0}>Sem time</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div className="grid gap-1">
         <label htmlFor="a-priority" className="text-xs text-woot-slate-11">

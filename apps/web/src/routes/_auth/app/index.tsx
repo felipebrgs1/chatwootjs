@@ -14,6 +14,7 @@ export const Route = createFileRoute("/_auth/app/")({
         q: z.string().optional(),
         inbox_id: z.coerce.number().optional(),
         labels: z.array(z.string()).optional(),
+        sort_by: z.enum(["latest", "created_at_asc", "priority", "waiting_since"]).optional(),
       })
       .parse(search),
   component: ConversationsHome,
@@ -32,6 +33,7 @@ function ConversationsHome() {
         query: search.q ?? "",
         inboxId: search.inbox_id,
         labels: search.labels,
+        sort: search.sort_by,
       }}
       onFilters={(filters) =>
         navigate({
@@ -41,6 +43,7 @@ function ConversationsHome() {
             q: filters.query || undefined,
             inbox_id: filters.inboxId,
             labels: filters.labels?.length ? filters.labels : undefined,
+            sort_by: filters.sort,
           },
           replace: true,
         })

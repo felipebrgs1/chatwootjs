@@ -1,23 +1,12 @@
-import {
-  ArrowDownUp,
-  ArrowRightToLine,
-  Inbox,
-  ListFilter,
-  MessageSquare,
-  Repeat,
-} from "lucide-react";
+import { ArrowRightToLine, Inbox, ListFilter, MessageSquare, Repeat, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@chatwootjs/ui/components/dropdown-menu";
 import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import type { ConversationItem } from "@/lib/conversations";
+import { WootSelectMenu } from "@/components/woot-select-menu";
 
 const STATUS_BADGES = [
   { value: "open", label: "Abertas" },
@@ -28,6 +17,15 @@ const STATUS_BADGES = [
 ] as const;
 
 export type StatusChip = (typeof STATUS_BADGES)[number]["value"];
+
+const SORT_OPTIONS = [
+  { value: "latest", label: "Última atividade" },
+  { value: "created_at_asc", label: "Criada em (mais antigas)" },
+  { value: "priority", label: "Prioridade" },
+  { value: "waiting_since", label: "Tempo de espera" },
+] as const;
+
+export type SortChip = (typeof SORT_OPTIONS)[number]["value"];
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-red-500",
@@ -58,25 +56,45 @@ export function ConversationList({
   selectedId,
   status,
   assignee,
+  sort,
+  hasFilters,
   mineCount,
   unassignedCount,
   allCount,
   onStatus,
   onAssignee,
+  onSort,
+  onClearFilters,
   accountLabels,
 }: {
   items: ConversationItem[] | null;
   selectedId: number | null;
   status: StatusChip;
   assignee: "me" | "unassigned" | "all";
+  sort: SortChip;
+  hasFilters: boolean;
   mineCount: number;
   unassignedCount: number;
   allCount: number;
   onStatus: (status: StatusChip) => void;
   onAssignee: (assignee: "me" | "unassigned" | "all") => void;
+  onSort: (sort: SortChip) => void;
+  onClearFilters: () => void;
   accountLabels: Array<{ id: number; title: string; color: string }>;
 }) {
   const statusLabel = STATUS_BADGES.find((s) => s.value === status)?.label ?? "Abertas";
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!filtersRef.current?.contains(e.target as Node)) setFiltersOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [filtersOpen]);
+
   return (
     <section
       aria-label="Lista de conversas"
@@ -86,41 +104,55 @@ export function ConversationList({
       <div className="flex h-[3.25rem] items-center justify-between gap-2 px-3">
         <div className="flex min-w-0 items-center">
           <h1 className="truncate text-base font-medium text-woot-slate-12">Conversas</h1>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Filtrar por status"
-              className="mx-1 my-0.5 flex-shrink-0 rounded-md bg-woot-slate-3 px-2 py-1 text-xxs font-medium capitalize text-woot-slate-12 transition-colors hover:bg-border"
-            >
-              {statusLabel}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {STATUS_BADGES.map((s) => (
-                <DropdownMenuItem
-                  key={s.value}
-                  onSelect={() => onStatus(s.value)}
-                  className={cn(s.value === status && "font-medium text-woot-blue")}
-                >
-                  {s.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <span
+            title={hasFilters ? `${allCount} conversas` : undefined}
+            className="mx-1 my-0.5 flex-shrink-0 rounded-md bg-woot-slate-3 px-2 py-1 text-xxs font-medium capitalize text-woot-slate-12"
+          >
+            {hasFilters ? allCount : statusLabel}
+          </span>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            title="Filtros avançados — chega no M11"
-            className="grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
-          >
-            <ListFilter className="size-4" />
-          </button>
-          <button
-            type="button"
-            title="Ordenar — chega no M11"
-            className="grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
-          >
-            <ArrowDownUp className="size-4" />
-          </button>
+          {hasFilters ? (
+            <button
+              type="button"
+              title="Limpar filtros"
+              onClick={onClearFilters}
+              className="grid size-7 place-content-center rounded-lg text-red-600 hover:bg-red-50"
+            >
+              <X className="size-4" />
+            </button>
+          ) : null}
+          <div ref={filtersRef} className="relative">
+            <button
+              type="button"
+              title="Filtros"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+              className="grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
+            >
+              <ListFilter className="size-4" />
+            </button>
+            {filtersOpen && (
+              <div className="absolute right-0 top-full z-40 mt-1 w-72 rounded-xl border border-border bg-background p-3 shadow-lg">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm text-woot-slate-12">Status</span>
+                  <WootSelectMenu
+                    value={status}
+                    options={STATUS_BADGES.map((s) => ({ value: s.value, label: s.label }))}
+                    onChange={(v) => onStatus(v as StatusChip)}
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <span className="truncate text-sm text-woot-slate-12">Ordenar por</span>
+                  <WootSelectMenu
+                    value={sort}
+                    options={SORT_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+                    onChange={(v) => onSort(v as SortChip)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             title="Alternar layout — chega no M12"

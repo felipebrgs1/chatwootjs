@@ -20,7 +20,7 @@ import {
   type Message,
 } from "@/lib/conversations";
 import { ConversationHeader } from "./ConversationHeader";
-import { ConversationList, type StatusChip } from "./ConversationList";
+import { ConversationList, type SortChip, type StatusChip } from "./ConversationList";
 import { DetailsPanel } from "./DetailsPanel";
 import { ReplyBox } from "./ReplyBox";
 import { Thread } from "./Thread";
@@ -41,6 +41,7 @@ export function ConversationsPage({
     query: string;
     inboxId?: number;
     labels?: string[];
+    sort?: SortChip;
   };
   onFilters: (filters: {
     status: StatusChip;
@@ -48,6 +49,7 @@ export function ConversationsPage({
     query: string;
     inboxId?: number;
     labels?: string[];
+    sort?: SortChip;
   }) => void;
 }) {
   const { session } = useSessionContext();
@@ -70,6 +72,7 @@ export function ConversationsPage({
         q: filters.query || undefined,
         inbox_id: filters.inboxId,
         labels: filters.labels,
+        sort_by: filters.sort,
       });
       setItems(data.conversations);
       setCounts({
@@ -80,7 +83,15 @@ export function ConversationsPage({
     } catch {
       // sessão expirada etc. — o provider trata
     }
-  }, [accountId, filters.status, filters.assignee, filters.query, filters.inboxId, filters.labels]);
+  }, [
+    accountId,
+    filters.status,
+    filters.assignee,
+    filters.query,
+    filters.inboxId,
+    filters.labels,
+    filters.sort,
+  ]);
 
   // lista inicial + quando filtros mudam (debounce na busca)
   useEffect(() => {
@@ -140,8 +151,14 @@ export function ConversationsPage({
         mineCount={counts.mine}
         unassignedCount={counts.unassigned}
         allCount={counts.all}
+        sort={filters.sort ?? "latest"}
+        hasFilters={Boolean(filters.inboxId || filters.labels?.length || filters.query)}
         onStatus={(status) => onFilters({ ...filters, status })}
         onAssignee={(assignee) => onFilters({ ...filters, assignee })}
+        onSort={(sort) => onFilters({ ...filters, sort })}
+        onClearFilters={() =>
+          onFilters({ status: filters.status, assignee: filters.assignee, query: "" })
+        }
         accountLabels={labels}
       />
       {selectedId === null ? (

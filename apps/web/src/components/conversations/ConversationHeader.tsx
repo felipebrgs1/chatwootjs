@@ -1,5 +1,5 @@
-import { BellOff, ChevronDown, Moon } from "lucide-react";
-import { useState } from "react";
+import { BellOff, ChevronDown, Moon, Users, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@chatwootjs/ui/components/button";
 import {
@@ -12,6 +12,7 @@ import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import type { ConversationDetail } from "@/lib/conversations";
+import { executeMacro, listMacros, listTeams, type Macro, type Team } from "@/lib/automation";
 
 const STATUSES = [
   { value: "open", label: "Aberta" },
@@ -26,17 +27,38 @@ const SNOOZE_OPTIONS = [
 ] as const;
 
 export function ConversationHeader({
+  accountId,
   conversation,
+  teams,
   onStatus,
   onSnooze,
   onMute,
+  onTeam,
+  onMacro,
 }: {
+  accountId: number;
   conversation: ConversationDetail;
+  teams?: Team[];
   onStatus: (status: string) => void;
   onSnooze: (untilEpoch: number) => void;
   onMute: () => void;
+  onTeam?: (teamId: number | null) => void;
+  onMacro?: () => void;
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [macros, setMacros] = useState<Macro[] | null>(null);
+  const [macrosOpen, setMacrosOpen] = useState(false);
+  const [macroBusy, setMacroBusy] = useState(false);
+  const [knownTeams, setKnownTeams] = useState<Team[] | null>(null);
+
+  const teamOptions = teams ?? knownTeams ?? [];
+
+  useEffect(() => {
+    if (teams) return;
+    void listTeams(accountId)
+      .then(setKnownTeams)
+      .catch(() => {});
+  }, [accountId, teams]);
 
   return (
     <header className="flex flex-shrink-0 items-center gap-2 border-b border-border bg-background px-3 py-2">
@@ -49,6 +71,80 @@ export function ConversationHeader({
         </p>
       </div>
       <div className="ml-auto flex items-center gap-1.5">
+        {(onTeam || teamOptions.length > 0) && (
+          <label className="flex items-center gap-1 text-xs text-muted-foreground" title="Time">
+            <Users className="size-4" />
+            <select
+              value={conversation.team_id ?? 0}
+              onChange={(e) => onTeam?.(Number(e.target.value) || null)}
+              className="h-8 max-w-28 rounded-lg border border-input bg-background px-1 text-xs"
+              aria-label="Time responsável"
+            >
+              <option value={0}>Sem time</option>
+              {teamOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            title="Executar macro"
+            disabled={macroBusy}
+            onClick={() => {
+              if (!macros) {
+                void listMacros(accountId)
+                  .then((rows) => {
+                    setMacros(rows);
+                    setMacrosOpen(true);
+                  })
+                  .catch(() => {});
+              } else {
+                setMacrosOpen((v) => !v);
+              }
+            }}
+          >
+            <Zap className="size-4" />
+            Macro
+          </Button>
+          {macrosOpen && (
+            <div className="absolute right-0 top-9 z-10 w-56 rounded-lg border bg-background p-1 shadow-lg">
+              {macros === null ? (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">Carregando...</p>
+              ) : macros.length === 0 ? (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Nenhuma macro — crie em Configurações · Macros.
+                </p>
+              ) : (
+                macros.map((macro) => (
+                  <button
+                    key={macro.id}
+                    type="button"
+                    disabled={macroBusy}
+                    onClick={() => {
+                      setMacroBusy(true);
+                      void executeMacro(accountId, macro.id, conversation.id)
+                        .then(() => {
+                          setMacrosOpen(false);
+                          onMacro?.();
+                        })
+                        .catch(() => {})
+                        .finally(() => setMacroBusy(false));
+                    }}
+                    className="block w-full rounded px-2 py-1.5 text-start text-xs hover:bg-muted disabled:opacity-50"
+                  >
+                    {macro.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(

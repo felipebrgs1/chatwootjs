@@ -242,3 +242,89 @@ export {
   upsertWidgetContact,
 } from "./services/widget.js";
 export type { ApiChannelMessageInput, WidgetContactInput, WidgetInbox } from "./services/widget.js";
+export {
+  CannedQuerySchema,
+  CreateCannedSchema,
+  UpdateCannedSchema,
+} from "./schemas/canned-responses.js";
+export {
+  CreateMacroSchema,
+  ExecuteMacroSchema,
+  MACRO_ACTION_NAMES,
+  UpdateMacroSchema,
+} from "./schemas/macros.js";
+export {
+  ActionItemSchema,
+  AUTOMATION_ACTION_NAMES,
+  AUTOMATION_CONDITION_KEYS,
+  AUTOMATION_EVENTS,
+  AUTOMATION_FILTER_OPERATORS,
+  ConditionItemSchema,
+  CreateAutomationRuleSchema,
+  UpdateAutomationRuleSchema,
+} from "./schemas/automation.js";
+export type { ActionItem, ConditionItem } from "./schemas/automation.js";
+export { CreateTeamSchema, TeamMembersBodySchema, UpdateTeamSchema } from "./schemas/teams.js";
+export { CreateWebhookSchema, UpdateWebhookSchema, WEBHOOK_EVENTS } from "./schemas/webhooks.js";
+export {
+  addTeamMembers,
+  createTeam,
+  deleteTeam,
+  findTeam,
+  getTeam,
+  listMyTeams,
+  listTeams,
+  pickAutoAssignee,
+  removeTeamMember,
+  toApiTeam,
+  updateTeam,
+} from "./services/teams.js";
+export type { ApiTeam, ApiTeamMember } from "./services/teams.js";
+export {
+  createCannedResponse,
+  deleteCannedResponse,
+  findCannedResponse,
+  listCannedResponses,
+  updateCannedResponse,
+} from "./services/canned-responses.js";
+export type { ApiCannedResponse } from "./services/canned-responses.js";
+export { applyActionItems, validateActionItems } from "./services/conversation-actions.js";
+export {
+  createMacro,
+  deleteMacro,
+  executeMacro,
+  findMacro,
+  listMacros,
+  registerMacroJob,
+  updateMacro,
+} from "./services/macros.js";
+export type { ApiMacro } from "./services/macros.js";
+export {
+  createAutomationRule,
+  deleteAutomationRule,
+  executeRuleOn,
+  findAutomationRule,
+  listAutomationRules,
+  matchesConditions,
+  processDueExecutions,
+  registerAutomationSweep,
+  runRulesFor,
+  updateAutomationRule,
+  validateRule,
+} from "./services/automation.js";
+export type { ApiAutomationRule, RuleCondition, RuleContext } from "./services/automation.js";
+export {
+  createWebhook,
+  deleteWebhook,
+  deliverWebhookUrl,
+  findWebhook,
+  fireWebhooks,
+  listWebhooks,
+  registerWebhookJob,
+  testWebhook,
+  updateWebhook,
+  webhookPayload,
+} from "./services/webhooks.js";
+export type { ApiWebhook } from "./services/webhooks.js";
+export { activeJobRunner, initJobs } from "./jobs/index.js";
+export { registerAutomationListeners } from "./jobs/automation.js";

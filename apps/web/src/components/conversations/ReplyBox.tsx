@@ -5,6 +5,7 @@ import { Button } from "@chatwootjs/ui/components/button";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import { ApiError } from "@/lib/auth";
+import { listCanned, type CannedResponse } from "@/lib/automation";
 import { sendTyping } from "@/hooks/useCable";
 import type { Message } from "@/lib/conversations";
 
@@ -35,11 +36,41 @@ export function ReplyBox({
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [canned, setCanned] = useState<CannedResponse[]>([]);
+  const [cannedOpen, setCannedOpen] = useState(false);
+  const cannedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const echoRef = useRef(0);
+
+  // autocomplete `//atalho`: busca no server com debounce e insere o conteúdo
+  function handleChange(value: string): void {
+    setText(value);
+    handleTyping();
+    const match = /(?:^|\s)\/\/(\S*)$/.exec(value);
+    if (cannedTimer.current) clearTimeout(cannedTimer.current);
+    if (!match) {
+      setCannedOpen(false);
+      return;
+    }
+    cannedTimer.current = setTimeout(() => {
+      void listCanned(accountId, match[1] || undefined)
+        .then((rows) => {
+          setCanned(rows.slice(0, 6));
+          setCannedOpen(true);
+        })
+        .catch(() => {});
+    }, 200);
+  }
+
+  function applyCanned(item: CannedResponse): void {
+    setText((prev) =>
+      prev.replace(/(?:^|\s)\/\/\S*$/, item.content ? ` ${item.content}` : "").trimStart(),
+    );
+    setCannedOpen(false);
+  }
 
   // digitação: liga ao teclar, desliga após 3s parado
   function handleTyping(): void {
@@ -51,6 +82,7 @@ export function ReplyBox({
   useEffect(() => {
     return () => {
       if (typingTimer.current) clearTimeout(typingTimer.current);
+      if (cannedTimer.current) clearTimeout(cannedTimer.current);
       sendTyping(accountId, conversationId, false);
     };
   }, [accountId, conversationId]);
@@ -154,7 +186,7 @@ export function ReplyBox({
           </button>
         ))}
         <span className="ml-auto hidden self-center text-[11px] text-muted-foreground sm:block">
-          {/* // respostas prontas chegam no M6 · Enter envia */}
+          // respostas prontas · Enter envia
         </span>
       </div>
       <div
@@ -163,12 +195,29 @@ export function ReplyBox({
           tab === "private" && "border-amber-300 bg-amber-50/50 dark:border-amber-800",
         )}
       >
+        {cannedOpen && canned.length > 0 && (
+          <ul className="max-h-44 overflow-y-auto border-b border-input p-1">
+            {canned.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => applyCanned(item)}
+                  className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-start hover:bg-muted"
+                >
+                  <code className="flex-shrink-0 rounded bg-muted px-1 text-[11px] text-woot-blue">
+                    //{item.short_code}
+                  </code>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                    {item.content}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <textarea
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            handleTyping();
-          }}
+          onChange={(e) => handleChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

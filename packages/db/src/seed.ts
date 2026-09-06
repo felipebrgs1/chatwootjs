@@ -3,6 +3,8 @@ import "./env";
 import {
   accountUsers,
   accounts,
+  automationRules,
+  cannedResponses,
   channelWebWidgets,
   contactInboxes,
   contacts,
@@ -10,8 +12,11 @@ import {
   inboxMembers,
   inboxes,
   labels,
+  macros,
   messages,
   superAdmins,
+  teamMembers,
+  teams,
   users,
 } from "./schema";
 import { db } from "./index";
@@ -191,6 +196,72 @@ async function seed(): Promise<void> {
         },
       ]);
     }
+  }
+
+  // ---- Fase 6: time demo + respostas prontas + macro exemplo ----
+  const demoTeam = await db.query.teams.findFirst({
+    where: (t, { eq, and }) => and(eq(t.accountId, accountId), eq(t.name, "suporte")),
+  });
+  let demoTeamId = demoTeam?.id;
+  if (!demoTeamId) {
+    const [created] = await db
+      .insert(teams)
+      .values({ accountId, name: "suporte", description: "Atendimento geral" })
+      .returning({ id: teams.id });
+    demoTeamId = created?.id;
+  }
+  if (demoTeamId) {
+    await db
+      .insert(teamMembers)
+      .values([
+        { teamId: demoTeamId, userId: adminId },
+        { teamId: demoTeamId, userId: agentId },
+      ])
+      .onConflictDoNothing();
+  }
+
+  await db
+    .insert(cannedResponses)
+    .values([
+      { accountId, shortCode: "saudacao", content: "Olá! Como posso ajudar?" },
+      { accountId, shortCode: "despedida", content: "Obrigado pelo contato! Até mais." },
+    ])
+    .onConflictDoNothing();
+
+  const demoMacro = await db.query.macros.findFirst({
+    where: (m, { eq, and }) => and(eq(m.accountId, accountId), eq(m.name, "Triagem urgente")),
+  });
+  if (!demoMacro && demoTeamId) {
+    await db.insert(macros).values({
+      accountId,
+      name: "Triagem urgente",
+      visibility: 1,
+      createdById: adminId,
+      updatedById: adminId,
+      actions: [
+        { action_name: "assign_team", action_params: [demoTeamId] },
+        { action_name: "add_label", action_params: ["prioridade"] },
+        { action_name: "change_priority", action_params: ["urgent"] },
+      ],
+    });
+  }
+
+  const demoRule = await db.query.automationRules.findFirst({
+    where: (r, { eq, and }) => and(eq(r.accountId, accountId), eq(r.name, "Urgente via chat")),
+  });
+  if (!demoRule) {
+    await db.insert(automationRules).values({
+      accountId,
+      name: "Urgente via chat",
+      description: "Mensagem com 'urgente' ganha label + prioridade",
+      eventName: "message_created",
+      conditions: [{ attribute_key: "content", filter_operator: "contains", values: ["urgente"] }],
+      actions: [
+        { action_name: "add_label", action_params: ["prioridade"] },
+        { action_name: "change_priority", action_params: ["urgent"] },
+      ],
+      active: true,
+    });
   }
 
   console.log(`seed ok: account=Demo admin=${ADMIN_EMAIL} agent=${AGENT_EMAIL} (${PASSWORD})`);

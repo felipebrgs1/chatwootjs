@@ -19,6 +19,7 @@ import {
   type ConversationItem,
   type Message,
 } from "@/lib/conversations";
+import { setConversationTeam } from "@/lib/automation";
 import { ConversationHeader } from "./ConversationHeader";
 import { ConversationList, type StatusChip } from "./ConversationList";
 import { DetailsPanel } from "./DetailsPanel";
@@ -263,12 +264,32 @@ function ConversationDetailView({
     <div className="flex min-w-0 flex-1">
       <section aria-label="Conversa" className="flex min-w-0 flex-1 flex-col">
         <ConversationHeader
+          accountId={accountId}
           conversation={conversation}
           onStatus={(status) =>
             void toggleStatus(accountId, conversation.id, status)
               .then(setConversation)
               .then(() => onListChanged())
           }
+          onTeam={(teamId) =>
+            void setConversationTeam(accountId, conversation.id, teamId)
+              .then(setConversation)
+              .then(() => onListChanged())
+          }
+          onMacro={() => {
+            // macro roda via job: atualiza já + de novo em 2s (cobre o BullMQ)
+            void getConversation(accountId, conversation.id)
+              .then(setConversation)
+              .catch(() => {});
+            setTimeout(() => {
+              void getConversation(accountId, conversation.id)
+                .then((detail) => {
+                  setConversation(detail);
+                  onListChanged();
+                })
+                .catch(() => {});
+            }, 2000);
+          }}
           onSnooze={(until) =>
             void toggleStatus(accountId, conversation.id, "snoozed", until)
               .then(setConversation)

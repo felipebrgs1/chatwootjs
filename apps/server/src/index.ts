@@ -9,11 +9,24 @@ import { notFound, onError } from "./routes/v1/_helpers";
 import auth from "./routes/auth";
 import publicWidget from "./routes/public";
 import v1 from "./routes/v1/index";
-import { registerContactImportJob, registerSnoozeJob } from "@chatwootjs/core";
+import {
+  initJobs,
+  registerAutomationListeners,
+  registerAutomationSweep,
+  registerContactImportJob,
+  registerMacroJob,
+  registerSnoozeJob,
+  registerWebhookJob,
+} from "@chatwootjs/core";
 
-// Jobs de background (in-process; BullMQ entra no M6).
+// Jobs de background (in-process sem REDIS_URL; BullMQ com REDIS_URL).
 registerContactImportJob();
 registerSnoozeJob();
+registerMacroJob();
+registerWebhookJob();
+registerAutomationListeners();
+registerAutomationSweep();
+void initJobs();
 
 const app = new Hono();
 

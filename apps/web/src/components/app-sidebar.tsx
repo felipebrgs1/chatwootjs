@@ -21,6 +21,9 @@ import {
   Smartphone,
   Tag,
   Users,
+  Webhook,
+  Workflow,
+  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
@@ -124,6 +127,11 @@ const NAV: NavGroup[] = [
       { label: "Agents", to: "/app/settings/agents", icon: Users },
       { label: "Inboxes", to: "/app/settings/inboxes", icon: Layers },
       { label: "Labels", to: "/app/settings/labels", icon: Tag },
+      { label: "Times", to: "/app/settings/teams", icon: Users },
+      { label: "Respostas prontas", to: "/app/settings/canned", icon: MessageSquare },
+      { label: "Macros", to: "/app/settings/macros", icon: Zap },
+      { label: "Automações", to: "/app/settings/automations", icon: Workflow },
+      { label: "Webhooks", to: "/app/settings/webhooks", icon: Webhook },
       { label: "Atributos custom", to: "/app/settings/custom-attributes", icon: PenLine },
     ],
   },

@@ -16,8 +16,10 @@
   },
   "dependencies": {
     "@chatwootjs/db": "workspace:*",
+    "bullmq": "^5.18.0",
     "drizzle-orm": "^0.45.2",
     "hono": "catalog:",
+    "ioredis": "^5.6.1",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -57,6 +57,20 @@ external_url, extension, fallback_title, meta jsonb)`
 Cada mutação publica no realtime: `conversation.updated`, `message.created`,
 `conversation.read`, `presence` — via `packages/core/realtime`.
 
+Realtime/WS:
+
+- `apps/server/src/cable.ts`: WS `GET /cable?token=...` (JWT do header/query,
+  igual ao ActionCable: `subscription` por canal `RoomChannel(account_id)` /
+  `PresenceChannel`; mensagens JSON compat `{ command, identifier, data }`).
+- O servidor WS assina o bus in-process (`realtime.subscribe`) e filtra por
+  `accountId` — só entrega eventos da conta autenticada (403/fechamento em
+  cross-account).
+- Com 1 instância (compose atual), bus in-process basta. Se um dia rodar
+  N≥2 réplicas, plugar adapter Redis pub/sub no bus (mesmo `REDIS_URL` do
+  BullMQ do M6) — os chamadores `publish()` não mudam.
+- Front: hook `useCable(accountId)` reconecta com backoff exponencial e
+  invalida queries TanStack conforme o evento.
+
 ## 5. Front (layout 3+1 painéis, idêntico ao Vue)
 
 - `conversations/index` + `conversations/$conversationId` (query espelha filtros).

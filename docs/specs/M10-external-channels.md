@@ -30,17 +30,17 @@ novo) → cria/atualiza conversa → cria message incoming → publica realtime
 
 Webhooks (paths iguais ao Rails onde existirem):
 
-| Canal          | Rota                                                              | Obs                                            |
-| -------------- | ----------------------------------------------------------------- | ---------------------------------------------- |
-| WhatsApp Cloud | `POST /webhooks/whatsapp` (+ `GET` verify `hub.*`)                | templates p/ outbound fora da janela 24h       |
-| Facebook       | `POST /webhooks/facebook`                                         | verify + `messaging` events                    |
-| Instagram      | `POST /webhooks/instagram`                                        | idem                                           |
-| Telegram       | `POST /webhooks/telegram/:bot_token`                              | Bot API                                        |
-| Twitter/X      | `POST /webhooks/twitter`                                          | CRC + DMs                                      |
-| SMS (Twilio)   | `POST /webhooks/sms/:provider`                                    | TwiML                                          |
-| Email          | inbound IMAP poller (job) + `POST /webhooks/email` (Sendgrid/SES) | reply com CC/BCC, `in_reply_to` por Message-ID |
-| Line           | `POST /webhooks/line`                                             | signature HMAC                                 |
-| Voice          | stub: cria conversa + registra chamada (sem mídia no MVP)         |                                                |
+| Canal          | Rota                                                                               | Obs                                            |
+| -------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| WhatsApp Cloud | `POST /webhooks/whatsapp` (+ `GET` verify `hub.*`)                                 | templates p/ outbound fora da janela 24h       |
+| Facebook       | `POST /webhooks/facebook`                                                          | verify + `messaging` events                    |
+| Instagram      | `POST /webhooks/instagram`                                                         | idem                                           |
+| Telegram       | `POST /webhooks/telegram/:bot_token`                                               | Bot API                                        |
+| Twitter/X      | `POST /webhooks/twitter`                                                           | CRC + DMs                                      |
+| SMS (Twilio)   | `POST /webhooks/sms/:provider`                                                     | TwiML                                          |
+| Email          | inbound IMAP poller (job repetível BullMQ) + `POST /webhooks/email` (Sendgrid/SES) | reply com CC/BCC, `in_reply_to` por Message-ID |
+| Line           | `POST /webhooks/line`                                                              | signature HMAC                                 |
+| Voice          | stub: cria conversa + registra chamada (sem mídia no MVP)                          |                                                |
 
 ## 4. Ordem por canal (um PR cada, nesta ordem)
 

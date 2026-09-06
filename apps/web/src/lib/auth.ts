@@ -210,6 +210,7 @@ export function useSession() {
   }, []);
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
     void load();
   }, [load]);
 

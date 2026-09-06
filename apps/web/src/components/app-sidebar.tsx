@@ -77,8 +77,16 @@ const NAV: NavGroup[] = [
   },
   { label: "Folders", icon: Folder, children: [] },
   { label: "Teams", icon: Users, children: [] },
-  { label: "Channels", icon: Layers, children: [] },
-  { label: "Labels", icon: Tag, children: [] },
+  {
+    label: "Channels",
+    icon: Layers,
+    children: [{ label: "Inboxes", to: "/app/settings/inboxes", icon: Layers }],
+  },
+  {
+    label: "Labels",
+    icon: Tag,
+    children: [{ label: "Todas as labels", to: "/app/settings/labels", icon: Tag }],
+  },
   {
     label: "Contacts",
     icon: Contact,
@@ -109,6 +117,9 @@ const NAV: NavGroup[] = [
     children: [
       { label: "General", to: "/app/settings/general", icon: Settings },
       { label: "Agents", to: "/app/settings/agents", icon: Users },
+      { label: "Inboxes", to: "/app/settings/inboxes", icon: Layers },
+      { label: "Labels", to: "/app/settings/labels", icon: Tag },
+      { label: "Atributos custom", to: "/app/settings/custom-attributes", icon: PenLine },
     ],
   },
 ];

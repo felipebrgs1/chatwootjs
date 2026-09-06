@@ -40,6 +40,7 @@ shots/            # saída dos screenshots (ignorado pelo git)
 6. **Auth**: JWT access 15min + refresh opaco com rotação. `authAccount()` valida vínculo com `:account_id` (403 cross-account). Roles `agent/administrator`.
 7. **Pacotes escopados `@chatwootjs/*`** (`core`, `db`, `ui`, `api`, `config`). Nunca reintroduzir outro escopo.
 8. **i18n pt-BR + en** nas strings visíveis (sem texto hard-coded fora desses dois idiomas).
+9. ** sempre rodar bun run check e resolver os conflitos**
 
 ## Comandos
 

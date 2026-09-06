@@ -73,3 +73,91 @@ export { InProcessRunner, jobs } from "./jobs/index.js";
 export type { Job, JobHandler, JobRunner } from "./jobs/index.js";
 export { publish, realtime, subscribe, unsubscribe } from "./realtime/index.js";
 export type { RealtimeEvent, RealtimeHandler, RealtimeMessage } from "./realtime/index.js";
+export {
+  ChannelSchema,
+  CreateInboxSchema,
+  InboxMembersBodySchema,
+  UpdateInboxSchema,
+  WorkingHoursBodySchema,
+  WorkingHourSchema,
+  ApiChannelSchema,
+  EmailChannelSchema,
+  FacebookChannelSchema,
+  InstagramChannelSchema,
+  LineChannelSchema,
+  SmsChannelSchema,
+  TelegramChannelSchema,
+  TwitterChannelSchema,
+  WebWidgetChannelSchema,
+  WhatsappChannelSchema,
+} from "./schemas/inboxes.js";
+export type {
+  CreateInboxInput,
+  InboxMembersBody,
+  UpdateInboxInput,
+  WorkingHoursBody,
+} from "./schemas/inboxes.js";
+export {
+  ATTRIBUTE_TYPES,
+  ContactsQuerySchema,
+  ContactInboxBodySchema,
+  CreateContactSchema,
+  CreateCustomAttributeSchema,
+  CreateLabelSchema,
+  CreateNoteSchema,
+  MergeContactSchema,
+  UpdateContactSchema,
+  UpdateCustomAttributeSchema,
+  UpdateLabelSchema,
+} from "./schemas/contacts.js";
+export type {
+  AttributeType,
+  ContactsQuery,
+  CreateContactInput,
+  CreateCustomAttributeInput,
+  UpdateContactInput,
+} from "./schemas/contacts.js";
+export {
+  addInboxMembers,
+  assertInboxAccess,
+  createInbox,
+  deleteInbox,
+  getInbox,
+  getInboxByIdForUser,
+  getWorkingHours,
+  isOutsideWorkingHours,
+  listAssignableAgents,
+  listInboxMembers,
+  listInboxes,
+  removeInboxMember,
+  setInboxMembers,
+  updateInbox,
+  updateWorkingHours,
+} from "./services/inboxes.js";
+export type { ApiInbox, ApiInboxAgent, ApiWorkingHour } from "./services/inboxes.js";
+export {
+  ATTRIBUTE_TYPES as CONTACT_ATTRIBUTE_TYPES,
+  createContact,
+  createContactInbox,
+  createCustomAttribute,
+  createLabel,
+  createNote,
+  deleteContact,
+  deleteCustomAttribute,
+  deleteLabel,
+  deleteNote,
+  getContact,
+  getImport,
+  listContacts,
+  listCustomAttributes,
+  listLabels,
+  listNotes,
+  mergeContacts,
+  registerContactImportJob,
+  startContactImport,
+  updateContact,
+  updateCustomAttribute,
+  updateLabel,
+  validateCustomAttributes,
+} from "./services/contacts.js";
+export type { ApiContact, ApiCustomAttribute, ApiLabel, ApiNote } from "./services/contacts.js";

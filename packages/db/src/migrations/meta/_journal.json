@@ -8,6 +8,20 @@
       "when": 1788711120793,
       "tag": "0000_fixed_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788714896472,
+      "tag": "0001_empty_revanche",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788715880955,
+      "tag": "0002_clammy_sabra",
+      "breakpoints": true
     }
   ]
 }

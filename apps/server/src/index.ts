@@ -7,6 +7,10 @@ import { logger } from "hono/logger";
 import { notFound, onError } from "./routes/v1/_helpers";
 import auth from "./routes/auth";
 import v1 from "./routes/v1/index";
+import { registerContactImportJob } from "@chatwootjs/core";
+
+// Jobs de background (in-process; BullMQ entra no M6).
+registerContactImportJob();
 
 const app = new Hono();
 

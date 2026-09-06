@@ -1,6 +1,16 @@
 import "./env";
 
-import { accountUsers, accounts, superAdmins, users } from "./schema";
+import {
+  accountUsers,
+  accounts,
+  channelWebWidgets,
+  contacts,
+  inboxMembers,
+  inboxes,
+  labels,
+  superAdmins,
+  users,
+} from "./schema";
 import { db } from "./index";
 
 const ADMIN_EMAIL = "admin@demo.test";
@@ -62,6 +72,69 @@ async function seed(): Promise<void> {
     .insert(superAdmins)
     .values({ email: SUPERADMIN_EMAIL, passwordDigest: superDigest })
     .onConflictDoNothing();
+
+  // ---- M2: inbox Website (widget) demo ----
+  let inboxId = (
+    await db.query.inboxes.findFirst({
+      where: (i, { eq, and }) =>
+        and(eq(i.accountId, accountId), eq(i.channelType, "Channel::WebWidget")),
+    })
+  )?.id;
+  if (!inboxId) {
+    const websiteToken = `demo_${crypto.randomUUID().replaceAll("-", "")}`.slice(0, 50);
+    const [channel] = await db
+      .insert(channelWebWidgets)
+      .values({
+        accountId,
+        websiteUrl: "https://demo.test",
+        websiteToken,
+        welcomeTitle: "Olá!",
+        welcomeTagline: "Como podemos ajudar?",
+      })
+      .returning({ id: channelWebWidgets.id });
+    if (!channel) throw new Error("seed: channel_web_widget not created");
+    const [inbox] = await db
+      .insert(inboxes)
+      .values({
+        accountId,
+        channelId: channel.id,
+        channelType: "Channel::WebWidget",
+        name: "Site Demo",
+        greetingEnabled: true,
+        greetingMessage: "Olá! Como podemos ajudar hoje?",
+      })
+      .returning({ id: inboxes.id });
+    if (!inbox) throw new Error("seed: inbox not created");
+    inboxId = inbox.id;
+  }
+  // Admin vê a inbox como membro; agente também (para o aceite de M2).
+  await db.insert(inboxMembers).values({ inboxId, userId: adminId }).onConflictDoNothing();
+  await db.insert(inboxMembers).values({ inboxId, userId: agentId }).onConflictDoNothing();
+
+  // ---- M3: labels demo + contato de exemplo ----
+  await db
+    .insert(labels)
+    .values([
+      { accountId, title: "suporte", color: "#1f93ff", showOnSidebar: true },
+      { accountId, title: "vendas", color: "#7b61ff", showOnSidebar: true },
+      { accountId, title: "prioridade", color: "#ef4444", showOnSidebar: false },
+    ])
+    .onConflictDoNothing({ target: [labels.title, labels.accountId] });
+
+  const demoContact = await db.query.contacts.findFirst({
+    where: (ct, { eq, and }) =>
+      and(eq(ct.accountId, accountId), eq(ct.email, "carla@cliente.test")),
+  });
+  if (!demoContact) {
+    await db.insert(contacts).values({
+      accountId,
+      name: "Carla Souza",
+      email: "carla@cliente.test",
+      phoneNumber: "+5511999998888",
+      location: "São Paulo, SP",
+      additionalAttributes: { company_name: "Cliente Inc" },
+    });
+  }
 
   console.log(`seed ok: account=Demo admin=${ADMIN_EMAIL} agent=${AGENT_EMAIL} (${PASSWORD})`);
 }

@@ -21,7 +21,8 @@ do Chatwoot, alimentados por `reporting_events`.
 label, name (first_response/resolution/reply_time/csat/incoming...),
 value, value_in_business_hours, event_start_time, event_end_time,
 created_at)` + índices `(account_id, name, created_at)`
-- `reporting_events_rollup` (agregado horário/diário — job noturno)
+- `reporting_events_rollup` (agregado horário/diário — job noturno, agendado
+  via BullMQ repeatable job — roda pelo `JobRunner` do M6, mesma fila `chatwootjs`)
 
 Emissores (jobs/hooks no domínio, não Controller):
 

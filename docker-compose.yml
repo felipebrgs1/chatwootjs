@@ -35,6 +35,9 @@ services:
       # Dentro do compose o banco atende pelo host `postgres` (não localhost).
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/chatwootjs
+      # Redis (jobs BullMQ a partir do M6 + pub/sub realtime multi-réplica).
+      # Sem REDIS_URL fora do compose, o server usa runner/bus in-process.
+      REDIS_URL: redis://redis:6379/0
     healthcheck:
       test:
         [
@@ -50,6 +53,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    container_name: chatwootjs-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - chatwootjs_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   postgres:
@@ -72,3 +92,4 @@ services:
 
 volumes:
   chatwootjs_postgres_data:
+  chatwootjs_redis_data:

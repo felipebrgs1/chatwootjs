@@ -32,8 +32,10 @@ packages/core/
     schemas/            # Zod por domínio (pagination.ts, id.ts, ...)
     services/           # regra de negócio chamada pelo Hono
     policies/           # can(action, role, resource) espelhando Pundit do Rails
-    jobs/               # interface Job + runner in-process (BullMQ só no M6+)
-    realtime/           # publish(accountId, event, data) — adapter WS/in-process
+    jobs/               # interface Job + runner in-process (BullMQ/Redis 8 só no M6+;
+                        # runner escolhido por REDIS_URL, interface imutável)
+    realtime/           # publish(accountId, event, data) — bus in-process;
+                        # adapter WS (M4) e, se multi-réplica, adapter Redis pub/sub
     lib/pagination.ts   # { page, per_page } -> { data, meta: { count, current_page } }
     lib/errors.ts       # NotFound, Forbidden, Unprocessable -> status Rails
     lib/mapper.ts       # snake_case DB -> camelCase API (toApi*)

@@ -10,8 +10,9 @@ export interface JobRunner {
 }
 
 /**
- * Runner in-process (dev/MVP). A interface é idêntica à do BullMQ,
- * que substitui esta classe a partir do M6 sem mudar os chamadores.
+ * Runner in-process (dev/M0–M5). A interface é idêntica à do BullMQ, que
+ * substitui esta classe no M6 quando `REDIS_URL` estiver setado (Redis 8,
+ * já provisionado no docker-compose) — sem mudar os chamadores.
  */
 export class InProcessRunner implements JobRunner {
   private handlers = new Map<string, JobHandler<never>>();

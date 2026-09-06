@@ -30,7 +30,24 @@ actions jsonb [{ action_name, action_params }])`
   (ações com delay, ex.: snooze)
 - `webhooks (id, account_id, inbox_id?, url, subscriptions[] text)`
 
-## 4. API + Jobs
+## 4. Infra — BullMQ (Redis 8) + troca de runner
+
+- Substituir `InProcessRunner` por `BullMQRunner` (`@taskforcesh/bullmq-pro` NÃO — usar `bullmq` >= 5) em
+  `packages/core/src/jobs/index.ts`: mesma interface `JobRunner` (`dispatch/on`),
+  **nenhum service/chamador muda**. Fila padrão `chatwootjs` + prefixo `bull:{account}`.
+- Ativação: se `REDIS_URL` estiver setado → `BullMQRunner`; senão mantém
+  `InProcessRunner` (dev sem docker segue funcionando).
+- `docker-compose.yml`: serviço `redis:8-alpine` com volume persistente +
+  `REDIS_URL=redis://redis:6379/0` no server (já provisionado).
+- Worker: roda no mesmo processo do server (`apps/server`) em `--production`;
+  separar processo worker só se necessário depois (não criar `apps/worker` agora).
+- Jobs desta spec em fila: `automation_rule.execute`,
+  `automation_rule.execute_delayed` (delayed job p/ snooze, consumindo
+  `automation_rule_pending_executions`), `webhook.deliver` (retry exponencial,
+  até 3 tentativas, `removeOnComplete: 1000`).
+- Idempotência: job reexecutável sem efeito duplicado (checar state antes de agir).
+
+## 5. API + Jobs
 
 | Método | Path                                                     | Obs                                        |
 | ------ | -------------------------------------------------------- | ------------------------------------------ |
@@ -51,14 +68,14 @@ actions jsonb [{ action_name, action_params }])`
 - Macro actions suportadas (paridade Rails): `assign_agent, assign_team,
 add_label, remove_label, send_message, change_status, change_priority, snooze`.
 
-## 5. Front
+## 6. Front
 
 - `settings/teams|macros|canned|automations|webhooks` (CRUDs iguais ao Vue;
   builder de automação com evento→condições→ações).
 - ReplyBox: `//` autocomplete de canned; dropdown de macros no header da
   conversa; seletor de team no header (M4 já prevê o slot).
 
-## 6. Aceite
+## 7. Aceite
 
 - [ ] Regra "conversa criada + prioridade urgente → assign team X + label Y +
       dispara webhook" executa < 5s e aparece activity message.
@@ -66,8 +83,11 @@ add_label, remove_label, send_message, change_status, change_priority, snooze`.
 - [ ] `//atalho` insere canned no ReplyBox.
 - [ ] Round-robin distribui entre membros online da inbox.
 - [ ] Webhook recebe payload no formato do Rails (comparar com doc do Chatwoot).
+- [ ] Com `REDIS_URL` setado, `redis-cli keys 'bull:*'` mostra filas BullMQ e
+      o runner ativo é `BullMQRunner`; sem `REDIS_URL`, dev segue in-process.
+- [ ] Job falho (webhook 500) faz retry exponencial e não trava a fila.
 
-## 7. Done
+## 8. Done
 
 Migration + CRUDs + executor + jobs + builder + testes (rule matching,
 macro execute, webhook delivery com retry).

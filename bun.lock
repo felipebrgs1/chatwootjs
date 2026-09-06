@@ -73,6 +73,15 @@
         "vite": "^8.1.5",
       },
     },
+    "apps/widget": {
+      "name": "widget",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@chatwootjs/config": "workspace:*",
+        "typescript": "catalog:",
+        "vite": "^8.1.5",
+      },
+    },
     "packages/api": {
       "name": "@chatwootjs/api",
       "dependencies": {
@@ -1286,6 +1295,8 @@
     "webpack-virtual-modules": ["webpack-virtual-modules@0.6.2", "", {}, "sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ=="],
 
     "which": ["which@4.0.0", "", { "dependencies": { "isexe": "^3.1.1" }, "bin": { "node-which": "bin/which.js" } }, "sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg=="],
+
+    "widget": ["widget@workspace:apps/widget"],
 
     "wrappy": ["wrappy@1.0.2", "", {}, "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="],
 

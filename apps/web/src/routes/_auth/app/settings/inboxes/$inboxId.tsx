@@ -86,6 +86,9 @@ const settingsSchema = z.object({
 
 type SettingsValues = z.infer<typeof settingsSchema>;
 
+const SERVER_URL =
+  (import.meta.env.VITE_SERVER_URL as string | undefined) ?? "http://localhost:3000";
+
 function InboxDetail() {
   const { inboxId } = Route.useParams();
   const { session } = useSessionContext();
@@ -180,6 +183,7 @@ function InboxDetail() {
   });
 
   const websiteToken = (inbox?.channel as { website_token?: string } | undefined)?.website_token;
+  const serverUrl = SERVER_URL;
 
   return (
     <div className="flex flex-1 flex-col bg-woot-bg">
@@ -316,7 +320,7 @@ function InboxDetail() {
             <h2 className="text-sm font-medium">Snippet do widget</h2>
             <pre className="overflow-x-auto rounded bg-muted p-3 text-xs">
               {websiteToken
-                ? `<script>\n  window.chatwootSettings = { position: "right" };\n</script>\n<script src="http://localhost:3001/widget.js?website_token=${websiteToken}" defer></script>`
+                ? `<script>\n  window.chatwootSettings = { websiteToken: "${websiteToken}" };\n</script>\n<script src="${serverUrl}/widget.js" defer></script>`
                 : "—"}
             </pre>
             <CopyButton text={websiteToken ?? ""} />

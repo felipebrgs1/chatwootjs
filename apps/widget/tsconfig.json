@@ -1,0 +1,8 @@
+{
+  "extends": "@chatwootjs/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": ["src/**/*.ts", "vite.config.ts"]
+}

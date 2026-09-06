@@ -227,3 +227,18 @@ export {
 export type { ApiAttachment, ApiMessage } from "./services/messages.js";
 export { LocalStorageProvider, setStorageProvider, storage } from "./lib/storage.js";
 export type { StorageProvider, StoredObject } from "./lib/storage.js";
+export {
+  createApiChannelConversation,
+  createWidgetConversation,
+  findWidgetContact,
+  findWidgetInbox,
+  getWidgetConfig,
+  listWidgetConversations,
+  listWidgetMessages,
+  markWidgetConversationRead,
+  sendWidgetMessage,
+  submitWidgetCsat,
+  updateWidgetContact,
+  upsertWidgetContact,
+} from "./services/widget.js";
+export type { ApiChannelMessageInput, WidgetContactInput, WidgetInbox } from "./services/widget.js";

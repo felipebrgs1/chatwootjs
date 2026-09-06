@@ -111,6 +111,11 @@ const NAV: NavGroup[] = [
     children: [{ label: "All Articles", to: "/app/helpcenter", icon: BookOpen }],
   },
   {
+    label: "Widget",
+    icon: Smartphone,
+    children: [{ label: "Preview", to: "/app/widget-preview", icon: Smartphone }],
+  },
+  {
     label: "Settings",
     icon: Settings,
     defaultOpen: true,

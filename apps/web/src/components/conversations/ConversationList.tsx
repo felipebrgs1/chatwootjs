@@ -269,10 +269,10 @@ function ConversationCard({
                     {chips.map((label) => (
                       <span
                         key={label.id}
-                        className="flex items-center gap-1 rounded-md bg-woot-slate-3 px-1.5 py-0.5 text-xxs text-woot-slate-11"
+                        className="flex items-center gap-1 rounded-md bg-woot-slate-3 px-1.5 py-0.5 text-[10px] leading-4 text-woot-slate-11"
                       >
                         <span
-                          className="size-2 rounded-[2px]"
+                          className="size-2 rounded-full"
                           style={{ backgroundColor: label.color }}
                         />
                         {label.title}

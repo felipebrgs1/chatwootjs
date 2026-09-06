@@ -1,8 +1,13 @@
+import { loadMembership, toRole, verifyAccessToken } from "@chatwootjs/core";
 import type { AuthCtx } from "@chatwootjs/core";
-import { ServiceUnavailableError, UnauthorizedError } from "@chatwootjs/core";
-import { db } from "@my-better-t-app/db";
-import { sql } from "drizzle-orm";
+import { ForbiddenError, UnauthorizedError } from "@chatwootjs/core";
 import type { Context, Next } from "hono";
+
+export interface UserEnv {
+  Variables: {
+    auth: { userId: number };
+  };
+}
 
 export interface AppEnv {
   Variables: {
@@ -10,50 +15,47 @@ export interface AppEnv {
   };
 }
 
-interface DemoTokenRow {
-  user_id: number;
-  account_id: number;
-  role: number;
+function extractToken(c: Context): string {
+  // Authorization: Bearer <jwt> (novo) ou access-token: <jwt> (compat Chatwoot).
+  const header = c.req.header("Authorization");
+  if (header?.startsWith("Bearer ")) {
+    return header.slice("Bearer ".length).trim();
+  }
+  const legacy = c.req.header("access-token");
+  if (legacy?.trim()) return legacy.trim();
+  throw new UnauthorizedError("Missing bearer token");
 }
 
-function toRole(role: number): AuthCtx["role"] {
-  return role === 1 ? "administrator" : "agent";
+async function userIdFromToken(c: Context): Promise<number> {
+  try {
+    return await verifyAccessToken(extractToken(c));
+  } catch {
+    throw new UnauthorizedError("Invalid or expired token");
+  }
+}
+
+/** Só valida o JWT (rotas sem :account_id, ex.: /profile). */
+export async function authUser(c: Context, next: Next): Promise<Response | void> {
+  const userId = await userIdFromToken(c);
+  c.set("auth", { userId });
+  await next();
 }
 
 /**
- * Stub funcional até o M1 (JWT real).
- * `Bearer demo-token` resolve o primeiro admin do seed via banco.
- * Qualquer outro token -> 401. Sem banco -> 503 explícito.
+ * Valida o JWT + vínculo com a conta da URL (403 se sem vínculo).
+ * Exige que a rota tenha o param `:account_id`.
  */
 export async function authAccount(c: Context, next: Next): Promise<Response | void> {
-  const header = c.req.header("Authorization");
-  if (!header?.startsWith("Bearer ")) {
-    throw new UnauthorizedError("Missing bearer token");
+  const userId = await userIdFromToken(c);
+  const rawAccountId = c.req.param("account_id");
+  const accountId = Number(rawAccountId);
+  if (!rawAccountId || !Number.isInteger(accountId) || accountId <= 0) {
+    throw new ForbiddenError("Missing account scope");
   }
-  const token = header.slice("Bearer ".length).trim();
-  if (token !== "demo-token") {
-    throw new UnauthorizedError("Invalid token");
+  const membership = await loadMembership(userId, accountId);
+  if (!membership) {
+    throw new ForbiddenError("No access to this account");
   }
-
-  let rows: DemoTokenRow[];
-  try {
-    const result = await db.execute(sql`
-      SELECT u.id AS user_id, au.account_id, au.role
-      FROM users u
-      JOIN account_users au ON au.user_id = u.id
-      ORDER BY u.id ASC
-      LIMIT 1
-    `);
-    rows = result.rows as unknown as DemoTokenRow[];
-  } catch {
-    throw new ServiceUnavailableError("Database unavailable (run db:push + db:seed)");
-  }
-
-  const row = rows[0];
-  if (!row) {
-    throw new UnauthorizedError("Demo seed not found (run db:seed)");
-  }
-
-  c.set("auth", { userId: row.user_id, accountId: row.account_id, role: toRole(row.role) });
+  c.set("auth", { userId, accountId, role: toRole(membership.role) });
   await next();
 }

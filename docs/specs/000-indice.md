@@ -12,7 +12,7 @@ quando o módulo estiver implementado, testado e com o aceite da spec cumprido.
 | Módulo | Spec                       | Descrição                                            | Spec     | Impl     |
 | ------ | -------------------------- | ---------------------------------------------------- | -------- | -------- |
 | M0     | `M0-fundacao.md`           | Fundação, `packages/core`, WootUI, seed              | [x] done | [x] done |
-| M1     | `M1-auth-accounts.md`      | Auth, contas, usuários, roles                        | [x] done | [ ] todo |
+| M1     | `M1-auth-accounts.md`      | Auth, contas, usuários, roles                        | [x] done | [x] done |
 | M2     | `M2-inboxes-channels.md`   | Inboxes, canais, horário comercial                   | [x] done | [ ] todo |
 | M3     | `M3-contacts.md`           | Contatos, labels, atributos custom, import           | [x] done | [ ] todo |
 | M4     | `M4-conversations.md`      | Conversas, mensagens, realtime                       | [x] done | [ ] todo |

@@ -1,0 +1,13 @@
+# ChatwootJS web — SPA estática servida pelo Caddy.
+:80 {
+	root * /srv
+	encode gzip
+
+	# Assets do Vite com hash no nome: cache imutável
+	@muta path /assets/*
+	header @muta Cache-Control "public, max-age=31536000, immutable"
+
+	# SPA fallback (TanStack Router)
+	try_files {path} /index.html
+	file_server
+}

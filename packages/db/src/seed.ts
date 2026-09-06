@@ -1,84 +1,69 @@
 import "./env";
 
-import { sql } from "drizzle-orm";
-
+import { accountUsers, accounts, superAdmins, users } from "./schema";
 import { db } from "./index";
 
+const ADMIN_EMAIL = "admin@demo.test";
+const AGENT_EMAIL = "agent@demo.test";
+const SUPERADMIN_EMAIL = "superadmin@demo.test";
+const PASSWORD = "password123";
+
 /**
- * Seed M0 — tabelas base (accounts/users/account_users) via SQL idempotente.
- * As colunas espelham a spec M1; no M1 este arquivo passa a usar o schema
- * Drizzle + dados de conteúdo (inboxes, contatos, conversas) entram em M2–M4.
+ * Seed M1 — conta Demo com 1 admin + 1 agente, e 1 superadmin global.
+ * Idempotente (ON CONFLICT DO NOTHING) — rode quantas vezes quiser.
  */
-async function ensureBaseTables(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS accounts (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      locale VARCHAR(10) NOT NULL DEFAULT 'pt_BR',
-      status INTEGER NOT NULL DEFAULT 0,
-      feature_flags JSONB NOT NULL DEFAULT '{}',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      password_digest TEXT NOT NULL,
-      availability_status INTEGER NOT NULL DEFAULT 0,
-      ui_settings JSONB NOT NULL DEFAULT '{}',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS account_users (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-      role INTEGER NOT NULL DEFAULT 0,
-      availability_status INTEGER NOT NULL DEFAULT 0,
-      auto_offline BOOLEAN NOT NULL DEFAULT false,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      UNIQUE(user_id, account_id)
-    );
-  `);
-}
-
 async function seed(): Promise<void> {
-  await ensureBaseTables();
-
-  await db.execute(sql`
-    INSERT INTO accounts (name) VALUES ('Demo')
-    ON CONFLICT DO NOTHING;
-  `);
-  const accountRows = (await db.execute(sql`SELECT id FROM accounts WHERE name = 'Demo' LIMIT 1;`))
-    .rows as Array<{ id: number }>;
-  const accountId = accountRows[0]?.id;
+  const existing = await db.query.accounts.findFirst({
+    where: (a, { eq }) => eq(a.name, "Demo"),
+  });
+  let accountId = existing?.id;
+  if (!accountId) {
+    const [created] = await db
+      .insert(accounts)
+      .values({ name: "Demo" })
+      .returning({ id: accounts.id });
+    accountId = created?.id;
+  }
   if (!accountId) throw new Error("seed: Demo account not found");
 
-  const passwordDigest = await Bun.password.hash("password123", { algorithm: "bcrypt", cost: 10 });
-  await db.execute(sql`
-    INSERT INTO users (name, email, password_digest)
-    VALUES ('Admin Demo', 'admin@demo.test', ${passwordDigest})
-    ON CONFLICT (email) DO NOTHING;
-  `);
-  const userRows = (
-    await db.execute(sql`SELECT id FROM users WHERE email = 'admin@demo.test' LIMIT 1;`)
-  ).rows as Array<{ id: number }>;
-  const userId = userRows[0]?.id;
-  if (!userId) throw new Error("seed: demo admin not found");
+  const passwordDigest = await Bun.password.hash(PASSWORD, { algorithm: "bcrypt", cost: 10 });
 
-  await db.execute(sql`
-    INSERT INTO account_users (user_id, account_id, role)
-    VALUES (${userId}, ${accountId}, 1)
-    ON CONFLICT (user_id, account_id) DO NOTHING;
-  `);
+  const [admin] = await db
+    .insert(users)
+    .values({ name: "Ada Lovelace", email: ADMIN_EMAIL, passwordDigest })
+    .onConflictDoNothing({ target: users.email })
+    .returning({ id: users.id });
+  const adminId =
+    admin?.id ??
+    (await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, ADMIN_EMAIL) }))?.id;
+  if (!adminId) throw new Error("seed: demo admin not found");
 
-  console.log("seed ok: account=Demo admin=admin@demo.test password=password123");
+  const [agent] = await db
+    .insert(users)
+    .values({ name: "Alan Turing", email: AGENT_EMAIL, passwordDigest })
+    .onConflictDoNothing({ target: users.email })
+    .returning({ id: users.id });
+  const agentId =
+    agent?.id ??
+    (await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, AGENT_EMAIL) }))?.id;
+  if (!agentId) throw new Error("seed: demo agent not found");
+
+  await db
+    .insert(accountUsers)
+    .values({ userId: adminId, accountId, role: 1 })
+    .onConflictDoNothing();
+  await db
+    .insert(accountUsers)
+    .values({ userId: agentId, accountId, role: 0 })
+    .onConflictDoNothing();
+
+  const superDigest = await Bun.password.hash(PASSWORD, { algorithm: "bcrypt", cost: 10 });
+  await db
+    .insert(superAdmins)
+    .values({ email: SUPERADMIN_EMAIL, passwordDigest: superDigest })
+    .onConflictDoNothing();
+
+  console.log(`seed ok: account=Demo admin=${ADMIN_EMAIL} agent=${AGENT_EMAIL} (${PASSWORD})`);
 }
 
 await seed();

@@ -15,6 +15,9 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@my-better-t-app/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

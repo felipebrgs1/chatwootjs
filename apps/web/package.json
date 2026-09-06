@@ -11,6 +11,7 @@
     "check-types": "vite build && tsc --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
     "@my-better-t-app/api": "workspace:*",
     "@my-better-t-app/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
@@ -23,6 +24,7 @@
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-hook-form": "^7.87.0",
     "sonner": "catalog:",
     "zod": "catalog:"
   },

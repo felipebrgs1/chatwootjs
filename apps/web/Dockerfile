@@ -10,8 +10,8 @@ ENV VITE_SERVER_URL=${VITE_SERVER_URL}
 ENV NODE_ENV=production
 RUN cd apps/web && bun run build
 
-FROM nginx:alpine AS runner
-COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+FROM caddy:alpine AS runner
+COPY --from=builder /app/apps/web/dist /srv
+COPY apps/web/Caddyfile /etc/caddy/Caddyfile
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { notFound, onError } from "./routes/v1/_helpers";
+import auth from "./routes/auth";
 import v1 from "./routes/v1/index";
 
 const app = new Hono();
@@ -31,6 +32,7 @@ app.get("/health", (c) => {
   return c.json({ ok: true });
 });
 
+app.route("/auth", auth);
 app.route("/api/v1", v1);
 
 export default app;

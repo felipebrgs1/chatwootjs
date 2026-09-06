@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
+import { ChatwootLogo } from "@chatwootjs/ui/components/chatwoot-logo";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 export function AuthCard({
@@ -17,9 +18,7 @@ export function AuthCard({
     <div className="flex min-h-svh items-center justify-center bg-woot-bg p-4">
       <div className="w-full max-w-sm rounded-xl border bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-woot-blue text-base font-bold text-white">
-            C
-          </div>
+          <ChatwootLogo className="size-9 rounded-full" />
           <div>
             <p className="font-semibold">ChatwootJS</p>
             <p className="text-sm text-muted-foreground">{title}</p>

@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@chatwootjs/ui/components/dropdown-menu";
 import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
+import { ChatwootLogo } from "@chatwootjs/ui/components/chatwoot-logo";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import { useSessionContext } from "@/components/session-provider";
@@ -380,9 +381,7 @@ export function AppSidebar() {
           {!collapsed && (
             <>
               <div className="grid size-6 flex-shrink-0 place-content-center">
-                <div className="flex size-4 items-center justify-center rounded bg-woot-blue text-[10px] font-bold text-white">
-                  C
-                </div>
+                <ChatwootLogo className="size-5" />
               </div>
               <div className="h-3 w-px flex-shrink-0 bg-border" />
             </>

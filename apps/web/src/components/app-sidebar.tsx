@@ -9,19 +9,23 @@ import {
   Clock,
   Contact,
   Folder,
+  Globe,
   Inbox,
-  Layers,
   LogOut,
+  Mail,
   Megaphone,
-  MessageSquare,
+  MessageCircle,
+  MessageSquareQuote,
   PenLine,
+  Phone,
+  Repeat,
   Search,
   Settings,
+  SquareUser,
   Tag,
+  ToyBrick,
   Users,
   Webhook,
-  Workflow,
-  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
@@ -51,9 +55,15 @@ type Availability = (typeof AVAILABILITY)[number]["value"];
 interface NavLeaf {
   label: string;
   to?: string;
-  search?: Record<string, string>;
+  search?: Record<string, unknown>;
   icon?: React.ComponentType<{ className?: string }>;
+  /** dot colorido (etiquetas) */
+  color?: string;
+  /** channel_type (Canais) */
+  channelType?: string | null;
   soon?: boolean;
+  /** sub-grupo com folhas aninhadas (Pastas/Times/Canais/Etiquetas) */
+  children?: NavLeaf[];
 }
 
 interface NavGroup {
@@ -64,108 +74,71 @@ interface NavGroup {
   children?: NavLeaf[];
 }
 
-const NAV: NavGroup[] = [
-  { label: "Minha Inbox", icon: Inbox, to: "/app" },
-  {
-    label: "Conversas",
-    icon: MessageSquare,
-    to: "/app",
-    defaultOpen: true,
-    children: [
-      { label: "Todas as conversas", to: "/app", icon: Inbox },
-      { label: "Menções", icon: AtSign, soon: true },
-      { label: "Sem atendimento", icon: Clock, soon: true },
-    ],
-  },
-  { label: "Pastas", icon: Folder, children: [] },
-  { label: "Times", icon: Users, children: [] },
-  {
-    label: "Canais",
-    icon: Layers,
-    children: [{ label: "Inboxes", to: "/app/settings/inboxes", icon: Layers }],
-  },
-  {
-    label: "Etiquetas",
-    icon: Tag,
-    children: [{ label: "Todas as etiquetas", to: "/app/settings/labels", icon: Tag }],
-  },
-  {
-    label: "Contatos",
-    icon: Contact,
-    children: [{ label: "Todos os contatos", to: "/app/contacts", icon: Contact }],
-  },
-  {
-    label: "Relatórios",
-    icon: BarChart3,
-    children: [{ label: "Visão geral", to: "/app/reports", icon: BarChart3 }],
-  },
-  {
-    label: "Campanhas",
-    icon: Megaphone,
-    children: [
-      {
-        label: "Live chat",
-        to: "/app/campaigns",
-        search: { type: "ongoing" },
-        icon: MessageSquare,
-      },
-      { label: "SMS", to: "/app/campaigns", search: { type: "one_off" }, icon: MessageSquare },
-    ],
-  },
-  {
-    label: "Central de Ajuda",
-    icon: BookOpen,
-    children: [{ label: "Todos os artigos", to: "/app/helpcenter", icon: BookOpen }],
-  },
-  {
-    label: "Configurações",
-    icon: Settings,
-    defaultOpen: true,
-    children: [
-      { label: "Geral", to: "/app/settings/general", icon: Settings },
-      { label: "Agentes", to: "/app/settings/agents", icon: Users },
-      { label: "Inboxes", to: "/app/settings/inboxes", icon: Layers },
-      { label: "Etiquetas", to: "/app/settings/labels", icon: Tag },
-      { label: "Times", to: "/app/settings/teams", icon: Users },
-      { label: "Respostas prontas", to: "/app/settings/canned", icon: MessageSquare },
-      { label: "Macros", to: "/app/settings/macros", icon: Zap },
-      { label: "Automações", to: "/app/settings/automations", icon: Workflow },
-      { label: "Webhooks", to: "/app/settings/webhooks", icon: Webhook },
-      { label: "Atributos customizados", to: "/app/settings/custom-attributes", icon: PenLine },
-    ],
-  },
-];
-
-const COLLAPSE_BELOW = 120;
-const MIN_WIDTH = 56;
-const MAX_WIDTH = 320;
-const DEFAULT_WIDTH = 240;
-const WIDTH_KEY = "cw_sidebar_width";
-
-function loadWidth(): number {
-  const raw = Number(localStorage.getItem(WIDTH_KEY));
-  if (Number.isFinite(raw) && raw >= MIN_WIDTH && raw <= MAX_WIDTH) return raw;
-  return DEFAULT_WIDTH;
+/** Ícone do canal por channel_type (paridade com ChannelIcon do v4). */
+function ChannelIconFor({
+  channelType,
+  className,
+}: {
+  channelType: string | null;
+  className?: string;
+}) {
+  const map: Record<string, React.ComponentType<{ className?: string }>> = {
+    "Channel::WebWidget": Globe,
+    "Channel::Api": Webhook,
+    "Channel::Email": Mail,
+    "Channel::Whatsapp": MessageCircle,
+    "Channel::Sms": MessageCircle,
+    "Channel::Telegram": MessageCircle,
+    "Channel::Phone": Phone,
+    "Channel::Line": MessageCircle,
+  };
+  const Icon = map[channelType ?? ""] ?? Inbox;
+  return <Icon className={className ?? "size-3.5 flex-shrink-0"} />;
 }
 
-/** Sidebar branca estilo Chatwoot v4: account switcher, busca, árvore de navegação, perfil. */
+/**
+ * Sidebar branca estilo Chatwoot v4: account switcher, busca, árvore de
+ * navegação (Canais/Etiquetas/Times/Pastas como sub-grupos de Conversas) e
+ * perfil no rodapé. Estrutura espelha components-next/sidebar/Sidebar.vue.
+ */
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, reload, switchAccount } = useSessionContext();
+  const accountId = session?.accountId;
+  const [inboxes, setInboxes] = useState<
+    Array<{ id: number; name: string; channel_type: string | null }>
+  >([]);
+  const [labels, setLabels] = useState<Array<{ id: number; title: string; color: string }>>([]);
   const [width, setWidth] = useState<number>(() => loadWidth());
   const [resizing, setResizing] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(NAV.filter((g) => g.defaultOpen).map((g) => [g.label, true])),
+    Object.fromEntries(NAV_DEFAULT_OPEN.map((g) => [g, true])),
   );
   const asideRef = useRef<HTMLElement>(null);
 
   const collapsed = width < COLLAPSE_BELOW;
   const activePath = location.pathname;
+  const currentSearch = location.search as Record<string, unknown>;
 
   useEffect(() => {
     localStorage.setItem(WIDTH_KEY, String(width));
   }, [width]);
+
+  // inboxes + labels para os sub-grupos Canais/Etiquetas
+  useEffect(() => {
+    if (!accountId) return;
+    void apiFetch<{
+      inboxes: Array<{ id: number; name: string; channel_type: string | null }>;
+    }>(`/api/v1/accounts/${accountId}/inboxes`)
+      .then((d) => setInboxes(d.inboxes))
+      .catch(() => {});
+    void apiFetch<{ labels: Array<{ id: number; title: string; color: string }> }>(
+      `/api/v1/accounts/${accountId}/labels`,
+    )
+      .then((d) => setLabels(d.labels))
+      .catch(() => {});
+  }, [accountId]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -182,6 +155,97 @@ export function AppSidebar() {
     };
   }, [resizing]);
 
+  const NAV: NavGroup[] = [
+    { label: "Minha Inbox", icon: Inbox, to: "/app" },
+    {
+      label: "Conversas",
+      icon: MessageCircle,
+      to: "/app",
+      defaultOpen: true,
+      children: [
+        { label: "Todas as conversas", to: "/app", icon: Inbox },
+        { label: "Menções", icon: AtSign, soon: true },
+        { label: "Sem atendimento", icon: Clock, soon: true },
+        {
+          label: "Pastas",
+          icon: Folder,
+          children: [],
+        },
+        {
+          label: "Times",
+          icon: Users,
+          children: [],
+        },
+        {
+          label: "Canais",
+          icon: Inbox,
+          children: inboxes.map((inbox): NavLeaf => ({
+            label: inbox.name,
+            to: "/app",
+            search: { inbox_id: inbox.id },
+            channelType: inbox.channel_type,
+          })),
+        },
+        {
+          label: "Etiquetas",
+          icon: Tag,
+          children: labels.map((label) => ({
+            label: label.title,
+            to: "/app",
+            search: { labels: [label.title] },
+            color: label.color,
+          })),
+        },
+      ],
+    },
+    {
+      label: "Contatos",
+      icon: Contact,
+      defaultOpen: true,
+      children: [{ label: "Todos os contatos", to: "/app/contacts", icon: Contact }],
+    },
+    {
+      label: "Relatórios",
+      icon: BarChart3,
+      children: [{ label: "Visão geral", to: "/app/reports", icon: BarChart3 }],
+    },
+    {
+      label: "Campanhas",
+      icon: Megaphone,
+      children: [
+        {
+          label: "Live chat",
+          to: "/app/campaigns",
+          search: { type: "ongoing" },
+          icon: MessageCircle,
+        },
+        { label: "SMS", to: "/app/campaigns", search: { type: "one_off" }, icon: MessageCircle },
+      ],
+    },
+    {
+      label: "Central de Ajuda",
+      icon: BookOpen,
+      children: [{ label: "Todos os artigos", to: "/app/helpcenter", icon: BookOpen }],
+    },
+    {
+      label: "Configurações",
+      icon: Settings,
+      defaultOpen: true,
+      children: [
+        { label: "Configurações da conta", to: "/app/settings/general", icon: Settings },
+        { label: "Agentes", to: "/app/settings/agents", icon: SquareUser },
+        { label: "Times", to: "/app/settings/teams", icon: Users },
+        { label: "Inboxes", to: "/app/settings/inboxes", icon: Inbox },
+        { label: "Etiquetas", to: "/app/settings/labels", icon: Tag },
+        { label: "Atributos customizados", to: "/app/settings/custom-attributes", icon: PenLine },
+        { label: "Automação", to: "/app/settings/automations", icon: Repeat },
+        { label: "Macros", to: "/app/settings/macros", icon: ToyBrick },
+        { label: "Respostas prontas", to: "/app/settings/canned", icon: MessageSquareQuote },
+        { label: "Webhooks", to: "/app/settings/webhooks", icon: Webhook },
+      ],
+    },
+  ];
+
   function isActive(to?: string): boolean {
     if (!to) return false;
     if (to === "/app") return activePath === "/app" || activePath === "/app/";
@@ -191,12 +255,20 @@ export function AppSidebar() {
   function isLeafActive(leaf: NavLeaf): boolean {
     if (!isActive(leaf.to)) return false;
     if (!leaf.search) return true;
-    const current = location.search as Record<string, unknown>;
-    return Object.entries(leaf.search).every(([k, v]) => String(current[k] ?? "") === v);
+    if ("inbox_id" in leaf.search)
+      return Number(currentSearch.inbox_id ?? 0) === Number(leaf.search.inbox_id);
+    if ("labels" in leaf.search) {
+      const current = currentSearch.labels;
+      const wanted = leaf.search.labels as string[];
+      return Array.isArray(current) && current.length === 1 && current[0] === wanted[0];
+    }
+    return Object.entries(leaf.search).every(
+      ([k, v]) => String(currentSearch[k] ?? "") === String(v),
+    );
   }
 
-  function toggleGroup(label: string): void {
-    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  function toggle(key: string): void {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function setAvailability(value: Availability): Promise<void> {
@@ -210,6 +282,84 @@ export function AppSidebar() {
   async function logout(): Promise<void> {
     await signOut();
     await navigate({ to: "/auth/login" });
+  }
+
+  function renderLeaf(leaf: NavLeaf, depth = 0): React.ReactNode {
+    const active = isLeafActive(leaf);
+    const content = (
+      <>
+        {leaf.channelType ? (
+          <ChannelIconFor channelType={leaf.channelType} className="size-3.5 flex-shrink-0" />
+        ) : leaf.color ? (
+          <span
+            className="size-2 flex-shrink-0 rounded-[2px]"
+            style={{ backgroundColor: leaf.color }}
+          />
+        ) : (
+          leaf.icon && <leaf.icon className="size-3.5 flex-shrink-0" />
+        )}
+        <span className="flex-grow truncate">{leaf.label}</span>
+      </>
+    );
+    if (leaf.soon) {
+      return (
+        <li title="Chega nos próximos módulos" className="list-none">
+          <span className="flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground/60">
+            {content}
+          </span>
+        </li>
+      );
+    }
+    if (!leaf.to) return null;
+    return (
+      <li className="list-none">
+        <Link
+          to={leaf.to}
+          search={leaf.search}
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted",
+            active
+              ? "bg-woot-nav-active-bg font-medium text-woot-blue"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          style={{ paddingLeft: `${8 + depth * 12}px` }}
+        >
+          {content}
+        </Link>
+      </li>
+    );
+  }
+
+  function renderSubGroup(leaf: NavLeaf): React.ReactNode {
+    const LeafIcon = leaf.icon;
+    const key = leaf.label;
+    const open = openGroups[key] ?? false;
+    const active = (leaf.children ?? []).some((c) => isLeafActive(c));
+    return (
+      <li className="list-none">
+        <button
+          type="button"
+          onClick={() => toggle(key)}
+          aria-expanded={open}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition-colors",
+            active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {LeafIcon && <LeafIcon className="size-3.5 flex-shrink-0" />}
+          <span className="flex-grow truncate text-start">{leaf.label}</span>
+          <ChevronDown className={cn("size-3.5 transition-transform", !open && "-rotate-90")} />
+        </button>
+        {open &&
+          ((leaf.children?.length ?? 0) > 0 ? (
+            <ul className="ml-4 flex flex-col gap-px border-l border-border pl-1">
+              {leaf.children!.map((child) => renderLeaf(child, 1))}
+            </ul>
+          ) : (
+            <p className="ml-4 px-2 py-1 text-xs text-muted-foreground/70">Nada aqui ainda</p>
+          ))}
+      </li>
+    );
   }
 
   return (
@@ -311,7 +461,6 @@ export function AppSidebar() {
         <ul className={cn("flex min-w-0 list-none flex-col gap-0.5", collapsed && "items-center")}>
           {NAV.map((group) => {
             const GroupIcon = group.icon;
-            const hasChildren = group.children !== undefined;
             const open = openGroups[group.label] ?? false;
             const groupActive =
               isActive(group.to) || (group.children ?? []).some((c) => isLeafActive(c));
@@ -340,10 +489,10 @@ export function AppSidebar() {
                     groupActive ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {hasChildren ? (
+                  {group.children !== undefined ? (
                     <button
                       type="button"
-                      onClick={() => toggleGroup(group.label)}
+                      onClick={() => toggle(group.label)}
                       aria-expanded={open}
                       className="flex flex-grow items-center gap-2 rounded hover:text-foreground"
                     >
@@ -365,48 +514,20 @@ export function AppSidebar() {
                     </Link>
                   )}
                 </div>
-                {hasChildren && open && (
+                {group.children !== undefined && open && (
                   <ul className="ml-4 flex flex-col gap-px border-l border-border pl-2">
-                    {(group.children ?? []).length === 0 && (
+                    {group.children.length === 0 && (
                       <li className="px-2 py-1 text-xs text-muted-foreground/70">
                         Nada aqui ainda
                       </li>
                     )}
-                    {(group.children ?? []).map((leaf) => {
-                      const LeafIcon = leaf.icon;
-                      const active = isLeafActive(leaf);
-                      const content = (
-                        <>
-                          {LeafIcon && <LeafIcon className="size-3.5 flex-shrink-0" />}
-                          <span className="flex-grow truncate">{leaf.label}</span>
-                        </>
-                      );
-                      return (
-                        <li key={leaf.label}>
-                          {leaf.to && !leaf.soon ? (
-                            <Link
-                              to={leaf.to}
-                              search={leaf.search}
-                              className={cn(
-                                "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted",
-                                active
-                                  ? "bg-woot-nav-active-bg font-medium text-woot-blue"
-                                  : "text-muted-foreground hover:text-foreground",
-                              )}
-                            >
-                              {content}
-                            </Link>
-                          ) : (
-                            <span
-                              title="Chega nos próximos módulos"
-                              className="flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground/60"
-                            >
-                              {content}
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
+                    {group.children.map((leaf) =>
+                      leaf.children !== undefined ? (
+                        <div key={leaf.label}>{renderSubGroup(leaf)}</div>
+                      ) : (
+                        <div key={leaf.label}>{renderLeaf(leaf)}</div>
+                      ),
+                    )}
                   </ul>
                 )}
               </li>
@@ -494,4 +615,18 @@ export function AppSidebar() {
       </div>
     </aside>
   );
+}
+
+const NAV_DEFAULT_OPEN = ["Conversas", "Contatos", "Configurações"];
+
+const COLLAPSE_BELOW = 120;
+const MIN_WIDTH = 56;
+const MAX_WIDTH = 320;
+const DEFAULT_WIDTH = 240;
+const WIDTH_KEY = "cw_sidebar_width";
+
+function loadWidth(): number {
+  const raw = Number(localStorage.getItem(WIDTH_KEY));
+  if (Number.isFinite(raw) && raw >= MIN_WIDTH && raw <= MAX_WIDTH) return raw;
+  return DEFAULT_WIDTH;
 }

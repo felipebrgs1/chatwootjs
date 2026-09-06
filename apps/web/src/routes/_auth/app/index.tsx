@@ -12,6 +12,8 @@ export const Route = createFileRoute("/_auth/app/")({
         status: z.enum(["open", "pending", "resolved", "snoozed", "all"]).optional(),
         assignee: z.enum(["me", "unassigned", "all"]).optional(),
         q: z.string().optional(),
+        inbox_id: z.coerce.number().optional(),
+        labels: z.array(z.string()).optional(),
       })
       .parse(search),
   component: ConversationsHome,
@@ -28,6 +30,8 @@ function ConversationsHome() {
         status: (search.status ?? "open") as StatusChip,
         assignee: (search.assignee ?? "me") as AssigneeType,
         query: search.q ?? "",
+        inboxId: search.inbox_id,
+        labels: search.labels,
       }}
       onFilters={(filters) =>
         navigate({
@@ -35,6 +39,8 @@ function ConversationsHome() {
             status: filters.status,
             assignee: filters.assignee,
             q: filters.query || undefined,
+            inbox_id: filters.inboxId,
+            labels: filters.labels?.length ? filters.labels : undefined,
           },
           replace: true,
         })

@@ -35,12 +35,19 @@ export function ConversationsPage({
   onFilters,
 }: {
   selectedId: number | null;
-  filters: { status: StatusChip; assignee: AssigneeType; query: string; inboxId?: number };
+  filters: {
+    status: StatusChip;
+    assignee: AssigneeType;
+    query: string;
+    inboxId?: number;
+    labels?: string[];
+  };
   onFilters: (filters: {
     status: StatusChip;
     assignee: AssigneeType;
     query: string;
     inboxId?: number;
+    labels?: string[];
   }) => void;
 }) {
   const { session } = useSessionContext();
@@ -62,6 +69,7 @@ export function ConversationsPage({
         assignee_type: filters.assignee,
         q: filters.query || undefined,
         inbox_id: filters.inboxId,
+        labels: filters.labels,
       });
       setItems(data.conversations);
       setCounts({
@@ -72,7 +80,7 @@ export function ConversationsPage({
     } catch {
       // sessão expirada etc. — o provider trata
     }
-  }, [accountId, filters.status, filters.assignee, filters.query, filters.inboxId]);
+  }, [accountId, filters.status, filters.assignee, filters.query, filters.inboxId, filters.labels]);
 
   // lista inicial + quando filtros mudam (debounce na busca)
   useEffect(() => {

@@ -21,6 +21,9 @@
       "cache": false,
       "interactive": true
     },
+    "db:seed": {
+      "cache": false
+    },
     "db:generate": {
       "cache": false,
       "interactive": true

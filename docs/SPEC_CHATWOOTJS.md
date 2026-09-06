@@ -40,15 +40,15 @@ docs/
 
 ### 2.1 Convenções fixas
 
-| Camada | Convenção |
-|---|---|
-| API | `apps/server/src/routes/v1/<recurso>.ts` → `new Hono<{Variables:{auth: AuthCtx}}>()`, `zValidator('json'|'query'|'param', schema)`, handler fino → chama `packages/core/services/*`. Resposta `{ payload / meta }` igual Rails (`render json:`). Erros `{ error, attributes }` com status Rails (401/403/404/422). |
-| Auth | Devise Token Auth do Chatwoot → **JWT access (15min) + refresh rotation (30d) + `access-token/client/uid` headers compat** (para widget antigo). bcrypt `password_digest`. Tabelas `users`, `account_users`, `access_tokens`. Middleware `authAccount()` injeta `accountId`, `currentUser`, `role`. |
-| DB | Drizzle `pgTable('accounts', {...})` etc. em `packages/db/src/schema/<dominio>.ts`. `drizzle-orm` + `drizzle-kit` migrate. Nunca SQL cru fora de migration. Mapper `toApi()` converte snake→camel só na borda. |
-| Front | TanStack Router: `apps/web/src/routes/_auth/app/accounts/$accountId/{dashboard,conversations,contacts,reports,campaigns,settings,helpcenter}.tsx`. Data: TanStack Query `queryKey ['account', id, 'conversations', filters]` + `useCable()` hook. Formulários: React Hook Form + Zod resolver. UI: Tailwind + `packages/ui` (shadcn). Tema Woot: sidebar `#1f2937`-like, acento `#1f93ff` (Chatwoot blue), fonte Inter. |
-| Jobs | BullMQ (Redis) para: envio de e-mail/WhatsApp, automações, campanhas, reports rollup, data-import. `packages/core/jobs/*`. Em dev pode ser in-process; interface idêntica. |
-| Storage | ActiveStorage → S3-compatível (MinIO em dev via docker-compose) + tabela `attachments` (id, message_id, file_type, external_url, meta). |
-| Realtime | `apps/server/src/cable.ts`: WS `GET /cable?token=...`. Canais `RoomChannel(account_id)`, `PresenceChannel`. Eventos JSON `{ event, data }`. Front `useCable(accountId)` reconecta com backoff. |
+| Camada   | Convenção                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API      | `apps/server/src/routes/v1/<recurso>.ts` → `new Hono<{Variables:{auth: AuthCtx}}>()`, `zValidator('json'                                                                                                                                                                                                                                                                                                                | 'query' | 'param', schema)`, handler fino → chama `packages/core/services/*`. Resposta `{ payload / meta }` igual Rails (`render json:`). Erros `{ error, attributes }` com status Rails (401/403/404/422). |
+| Auth     | Devise Token Auth do Chatwoot → **JWT access (15min) + refresh rotation (30d) + `access-token/client/uid` headers compat** (para widget antigo). bcrypt `password_digest`. Tabelas `users`, `account_users`, `access_tokens`. Middleware `authAccount()` injeta `accountId`, `currentUser`, `role`.                                                                                                                     |
+| DB       | Drizzle `pgTable('accounts', {...})` etc. em `packages/db/src/schema/<dominio>.ts`. `drizzle-orm` + `drizzle-kit` migrate. Nunca SQL cru fora de migration. Mapper `toApi()` converte snake→camel só na borda.                                                                                                                                                                                                          |
+| Front    | TanStack Router: `apps/web/src/routes/_auth/app/accounts/$accountId/{dashboard,conversations,contacts,reports,campaigns,settings,helpcenter}.tsx`. Data: TanStack Query `queryKey ['account', id, 'conversations', filters]` + `useCable()` hook. Formulários: React Hook Form + Zod resolver. UI: Tailwind + `packages/ui` (shadcn). Tema Woot: sidebar `#1f2937`-like, acento `#1f93ff` (Chatwoot blue), fonte Inter. |
+| Jobs     | BullMQ (Redis) para: envio de e-mail/WhatsApp, automações, campanhas, reports rollup, data-import. `packages/core/jobs/*`. Em dev pode ser in-process; interface idêntica.                                                                                                                                                                                                                                              |
+| Storage  | ActiveStorage → S3-compatível (MinIO em dev via docker-compose) + tabela `attachments` (id, message_id, file_type, external_url, meta).                                                                                                                                                                                                                                                                                 |
+| Realtime | `apps/server/src/cable.ts`: WS `GET /cable?token=...`. Canais `RoomChannel(account_id)`, `PresenceChannel`. Eventos JSON `{ event, data }`. Front `useCable(accountId)` reconecta com backoff.                                                                                                                                                                                                                          |
 
 ### 2.2 ENV / Infra (docker-compose.yml estender)
 
@@ -258,16 +258,18 @@ Cada módulo entrega: migration Drizzle + seed + rotas Hono + testes de API + te
 ## 8. Padrão de código (para agentes)
 
 **Backend (Hono):**
+
 ```ts
 // apps/server/src/routes/v1/conversations.ts
-import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
-import { ConversationQuerySchema, AssignBodySchema } from '@chatwootjs/core/schemas';
-import { listConversations, assignConversation } from '@chatwootjs/core/services/conversations';
-import { authAccount } from '../../middlewares/auth';
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { ConversationQuerySchema, AssignBodySchema } from "@chatwootjs/core/schemas";
+import { listConversations, assignConversation } from "@chatwootjs/core/services/conversations";
+import { authAccount } from "../../middlewares/auth";
 const app = new Hono().use(authAccount);
-app.get('/', zValidator('query', ConversationQuerySchema), async (c) => {
-  const q = c.req.valid('query'); const { accountId } = c.var.auth;
+app.get("/", zValidator("query", ConversationQuerySchema), async (c) => {
+  const q = c.req.valid("query");
+  const { accountId } = c.var.auth;
   const { data, meta } = await listConversations(accountId, q);
   return c.json({ data: data.map(toApiConversation), meta });
 });
@@ -275,20 +277,24 @@ export default app;
 ```
 
 **Drizzle:**
+
 ```ts
 // packages/db/src/schema/conversations.ts
-export const conversations = pgTable('conversations', {
-  id: serial('id').primaryKey(),
-  accountId: integer('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
-  status: integer('status').notNull().default(0),
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  status: integer("status").notNull().default(0),
   // ... espelhar schema.rb
 });
 ```
 
 **Front (TanStack Router + Query):**
+
 ```tsx
 // apps/web/src/routes/_auth/app/accounts/$accountId/conversations.$conversationId.tsx
-export const Route = createFileRoute('...')({
+export const Route = createFileRoute("...")({
   loader: ({ params }) => prefetchConversation(params.conversationId),
   component: ConversationPage, // <ConversationList/> + <Thread/> + <DetailsPanel/>
 });
@@ -318,4 +324,4 @@ export const Route = createFileRoute('...')({
 2. Depois **M1** (auth real) — a partir daí o dashboard deixa de ser mock.
 3. Usar `chatwoot/` como referência viva: cada PR cita `chatwoot/app/{models,controllers}/<arquivo>.rb` + `chatwoot/app/javascript/dashboard/routes/dashboard/<pasta>` portados.
 
-*Spec versionada: v1 — stack Hono/Drizzle/Zod/React+TRouter. Ajustar só por ADR em `docs/`.*
+_Spec versionada: v1 — stack Hono/Drizzle/Zod/React+TRouter. Ajustar só por ADR em `docs/`._

@@ -33,6 +33,7 @@ export interface ApiAutomationRule {
   actions: ActionItem[];
   active: boolean;
   execution_delay: number | null;
+  created_at: string;
 }
 
 /** Condição como vem do banco (query_operator aberto) ou do Zod (enum). */
@@ -53,6 +54,7 @@ function toApi(row: AutomationRule): ApiAutomationRule {
     actions: row.actions,
     active: row.active,
     execution_delay: row.executionDelay,
+    created_at: row.createdAt.toISOString(),
   };
 }
 
@@ -221,6 +223,31 @@ export async function deleteAutomationRule(
   requireAdmin(auth);
   const rule = await findAutomationRule(accountId, id);
   await db.delete(automationRules).where(eq(automationRules.id, rule.id));
+}
+
+/** Duplica a regra (espelha clone do Rails: dup integral). */
+export async function cloneAutomationRule(
+  accountId: number,
+  auth: AuthCtx,
+  id: number,
+): Promise<ApiAutomationRule> {
+  requireAdmin(auth);
+  const rule = await findAutomationRule(accountId, id);
+  const [copy] = await db
+    .insert(automationRules)
+    .values({
+      accountId,
+      name: rule.name,
+      description: rule.description,
+      eventName: rule.eventName,
+      conditions: rule.conditions,
+      actions: rule.actions,
+      active: rule.active,
+      executionDelay: rule.executionDelay,
+    })
+    .returning();
+  if (!copy) throw new NotFoundError("Automation rule not found");
+  return toApi(copy);
 }
 
 // ---- Avaliação de condições ----

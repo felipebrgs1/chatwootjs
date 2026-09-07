@@ -479,7 +479,7 @@ function ContactLabels({ contactId, accountId }: { contactId: number; accountId:
           key={label.id}
           className="group inline-flex items-center gap-1 rounded-md border border-border bg-woot-slate-3/60 px-2 py-0.5 text-xs text-woot-slate-12"
         >
-          <span className="size-2 rounded-[2px]" style={{ backgroundColor: label.color }} />
+          <span className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
           {label.title}
           <button
             type="button"
@@ -515,7 +515,7 @@ function ContactLabels({ contactId, accountId }: { contactId: number; accountId:
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
                 >
                   <span
-                    className="size-2 shrink-0 rounded-[2px]"
+                    className="size-2 shrink-0 rounded-full"
                     style={{ backgroundColor: label.color }}
                   />
                   <span className="flex-1 truncate text-start">{label.title}</span>

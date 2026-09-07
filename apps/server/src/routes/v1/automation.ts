@@ -1,6 +1,7 @@
 import {
   CreateAutomationRuleSchema,
   UpdateAutomationRuleSchema,
+  cloneAutomationRule,
   createAutomationRule,
   deleteAutomationRule,
   listAutomationRules,
@@ -41,6 +42,19 @@ app.patch("/:rule_id", zValidator("json", UpdateAutomationRuleSchema), async (c)
       c.req.valid("json"),
     );
     return ok(c, { automation_rule: rule });
+  } catch (err) {
+    return fail(c, err);
+  }
+});
+
+app.post("/:rule_id/clone", async (c) => {
+  try {
+    const rule = await cloneAutomationRule(
+      c.var.auth.accountId,
+      c.var.auth,
+      Number(c.req.param("rule_id")),
+    );
+    return c.json({ data: { automation_rule: rule } }, 201);
   } catch (err) {
     return fail(c, err);
   }

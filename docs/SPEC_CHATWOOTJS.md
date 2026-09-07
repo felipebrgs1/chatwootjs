@@ -47,14 +47,14 @@ docs/
 | DB       | Drizzle `pgTable('accounts', {...})` etc. em `packages/db/src/schema/<dominio>.ts`. `drizzle-orm` + `drizzle-kit` migrate. Nunca SQL cru fora de migration. Mapper `toApi()` converte snake→camel só na borda.                                                                                                                                                                                                          |
 | Front    | TanStack Router: `apps/web/src/routes/_auth/app/accounts/$accountId/{dashboard,conversations,contacts,reports,campaigns,settings,helpcenter}.tsx`. Data: TanStack Query `queryKey ['account', id, 'conversations', filters]` + `useCable()` hook. Formulários: React Hook Form + Zod resolver. UI: Tailwind + `packages/ui` (shadcn). Tema Woot: sidebar `#1f2937`-like, acento `#1f93ff` (Chatwoot blue), fonte Inter. |
 | Jobs     | BullMQ (Redis 8) para: envio de e-mail/WhatsApp, automações, campanhas, reports rollup, data-import. `packages/core/jobs/*`. Interface única `JobRunner` (`dispatch/on`): M0–M5 usa `InProcessRunner`; no M6 entra `BullMQRunner` ativado por `REDIS_URL` — nenhum chamador muda (services só chamam `jobs.dispatch(...)`).                                                                                             |
-| Storage  | ActiveStorage → S3-compatível (MinIO em dev via docker-compose) + tabela `attachments` (id, message_id, file_type, external_url, meta).                                                                                                                                                                                                                                                                                 |
+| Storage  | ActiveStorage → S3-compatível (RustFS em dev via docker-compose; AWS S3 em prod) + tabela `attachments` (id, message_id, file_type, external_url, meta).                                                                                                                                                                                                                                                                |
 | Realtime | `apps/server/src/cable.ts`: WS `GET /cable?token=...`. Canais `RoomChannel(account_id)`, `PresenceChannel`. Eventos JSON `{ event, data }`. Front `useCable(accountId)` reconecta com backoff. O WS assina no bus in-process (`packages/core/realtime`); com N≥2 réplicas do server, plugar adapter Redis pub/sub no mesmo bus usando o `REDIS_URL` (mesmo papel do Redis no ActionCable em produção).                  |
 
 ### 2.2 ENV / Infra (docker-compose.yml estender)
 
 `.env` único na raiz para front + back (`DATABASE_URL`, `CORS_ORIGIN`, `VITE_SERVER_URL`, `REDIS_URL` (entra no M6, já provisionado no compose), `JWT_SECRET`, `S3_*`). Vite lê via `envDir: <raiz>`; Hono/Drizzle carregam via `process.loadEnvFile(<raiz>/.env)` sem sobrescrever o ambiente (compose vence).
 
-`postgres:16`, `redis:8-alpine`, `minio`, `apps/server (3000)`, `apps/web (3001)`. Vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `FRONTEND_URL`, `S3_*`, `WHATSAPP_*` (só M10).
+`postgres:16`, `redis:8-alpine`, `rustfs`, `apps/server (3000)`, `apps/web (3001)`. Vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `FRONTEND_URL`, `S3_*`, `WHATSAPP_*` (só M10).
 
 ---
 

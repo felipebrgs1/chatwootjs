@@ -21,6 +21,7 @@ import {
   registerReportingRollup,
   registerSnoozeJob,
   registerWebhookJob,
+  storage,
 } from "@chatwootjs/core";
 
 // Jobs de background (in-process sem REDIS_URL; BullMQ com REDIS_URL).
@@ -96,11 +97,23 @@ app.get("/widget-demo", (c) => {
 </html>`);
 });
 
-// Arquivos enviados (anexos). Em produção, trocar por S3/MinIO (ver lib/storage).
+// Arquivos enviados (anexos) via provider ativo: disco local ou S3/RustFS.
+// Com S3, arquivos legados ainda em disco continuam servidos (fallback).
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? `${process.cwd()}/.uploads`;
 app.get("/uploads/*", async (c) => {
   const key = c.req.path.replace(/^\/uploads\//, "");
   if (key.includes("..")) return c.text("Forbidden", 403);
+  if (storage().name !== "local") {
+    const stored = await storage().read(key);
+    if (stored) {
+      return new Response(stored.body, {
+        headers: {
+          "Content-Type": stored.contentType || "application/octet-stream",
+          "Content-Length": String(stored.size),
+        },
+      });
+    }
+  }
   const file = Bun.file(`${UPLOAD_DIR}/${key}`);
   if (!(await file.exists())) return c.text("Not found", 404);
   return new Response(file.stream(), {

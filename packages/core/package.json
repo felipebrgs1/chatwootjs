@@ -15,6 +15,7 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
     "@chatwootjs/db": "workspace:*",
     "bullmq": "^5.18.0",
     "drizzle-orm": "^0.45.2",

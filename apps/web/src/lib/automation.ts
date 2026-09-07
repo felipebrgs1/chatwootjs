@@ -47,6 +47,7 @@ export interface AutomationRule {
   actions: MacroAction[];
   active: boolean;
   execution_delay: number | null;
+  created_at: string;
 }
 
 export interface Webhook {

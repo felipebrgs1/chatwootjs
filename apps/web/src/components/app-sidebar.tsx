@@ -314,7 +314,7 @@ export function AppSidebar() {
           <ChannelIconFor channelType={leaf.channelType} className="size-3.5 flex-shrink-0" />
         ) : leaf.color ? (
           <span
-            className="size-2 flex-shrink-0 rounded-[2px]"
+            className="size-2 flex-shrink-0 rounded-full"
             style={{ backgroundColor: leaf.color }}
           />
         ) : (

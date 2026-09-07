@@ -38,6 +38,14 @@ services:
       # Redis (jobs BullMQ a partir do M6 + pub/sub realtime multi-réplica).
       # Sem REDIS_URL fora do compose, o server usa runner/bus in-process.
       REDIS_URL: redis://redis:6379/0
+      # Objetos (anexos) via S3 — no compose, RustFS local. Sem S3_BUCKET,
+      # o server usa disco local (.uploads). Produção: aponte para AWS S3.
+      S3_BUCKET: ${S3_BUCKET:-chatwootjs-uploads}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://rustfs:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_FORCE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-rustfsadmin}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-rustfsadmin}
     healthcheck:
       test:
         [
@@ -55,6 +63,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rustfs:
+        condition: service_healthy
     restart: unless-stopped
 
   redis:
@@ -70,6 +80,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: chatwootjs-rustfs
+    command: ["server", "/data", "--console-enable"]
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - chatwootjs_rustfs_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   postgres:
@@ -93,3 +124,4 @@ services:
 volumes:
   chatwootjs_postgres_data:
   chatwootjs_redis_data:
+  chatwootjs_rustfs_data:

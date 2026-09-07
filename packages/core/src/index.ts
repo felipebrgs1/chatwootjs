@@ -260,8 +260,13 @@ export {
   uploadMessageAttachment,
 } from "./services/messages.js";
 export type { ApiAttachment, ApiMessage } from "./services/messages.js";
-export { LocalStorageProvider, setStorageProvider, storage } from "./lib/storage.js";
-export type { StorageProvider, StoredObject } from "./lib/storage.js";
+export {
+  LocalStorageProvider,
+  S3StorageProvider,
+  setStorageProvider,
+  storage,
+} from "./lib/storage.js";
+export type { StorageProvider, StoredBytes, StoredObject } from "./lib/storage.js";
 export {
   createApiChannelConversation,
   createWidgetConversation,
@@ -336,6 +341,7 @@ export {
 export type { ApiMacro } from "./services/macros.js";
 export {
   createAutomationRule,
+  cloneAutomationRule,
   deleteAutomationRule,
   executeRuleOn,
   findAutomationRule,

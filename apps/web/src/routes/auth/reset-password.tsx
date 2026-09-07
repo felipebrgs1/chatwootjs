@@ -8,7 +8,7 @@ import { Input } from "@chatwootjs/ui/components/input";
 import { Label } from "@chatwootjs/ui/components/label";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { AuthCard, AuthFooterLink } from "@/components/auth-card";
+import { AuthPageShell, AuthSubtitleLink } from "@/components/auth-layout";
 import { ApiError } from "@/lib/auth";
 
 const SERVER_URL =
@@ -18,8 +18,12 @@ export const Route = createFileRoute("/auth/reset-password")({
   component: ResetPage,
 });
 
-const Step1 = z.object({ email: z.email("E-mail inválido") });
+// Strings de `dashboard/i18n/locale/pt_BR/resetPassword.json` do original.
+const Step1 = z.object({ email: z.email("Por favor, insira um e-mail válido.") });
 const Step2 = z.object({ password: z.string().min(8, "Mínimo de 8 caracteres") });
+
+const inputClassName =
+  "h-auto rounded-md border-0 bg-slate-900/[0.04] px-3 py-3 text-sm placeholder:text-muted-foreground focus-visible:ring-1 dark:bg-white/[0.06]";
 
 function ResetPage() {
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -37,7 +41,7 @@ function ResetPage() {
         body: JSON.stringify(input),
       });
       const body = (await res.json()) as { data: { reset_token?: string } };
-      // Em dev a API devolve o token (sem e-mail configurado — M10/M12).
+      // Em dev a API devolve o token (sem e-mail configurado).
       setResetToken(body.data.reset_token ?? "sent");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro inesperado");
@@ -59,34 +63,47 @@ function ResetPage() {
   }
 
   return (
-    <AuthCard
-      title="Recuperar senha"
-      footer={
-        <>
-          Lembrou? <AuthFooterLink to="/auth/login">Entrar</AuthFooterLink>
-        </>
-      }
-    >
+    <AuthPageShell>
+      <h1 className="mb-1 text-left text-2xl font-medium tracking-tight">Redefinir senha</h1>
+      <p className="mb-4 text-sm font-normal leading-6 text-muted-foreground">
+        Digite o endereço de e-mail que você usa para acessar o Chatwoot para obter as instruções de
+        redefinição da senha.
+      </p>
       {done ? (
         <p className="text-sm">
-          Senha alterada! <AuthFooterLink to="/auth/login">Entre com a nova senha.</AuthFooterLink>
+          Senha alterada!{" "}
+          <AuthSubtitleLink to="/auth/login">Entre com a nova senha.</AuthSubtitleLink>
         </p>
       ) : resetToken === null ? (
-        <form onSubmit={step1.handleSubmit(requestReset)} className="grid gap-4">
+        <form onSubmit={step1.handleSubmit(requestReset)} className="space-y-5">
           <div className="grid gap-1.5">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" {...step1.register("email")} />
+            <Input
+              id="email"
+              type="email"
+              placeholder="Por favor, digite seu e-mail."
+              className={inputClassName}
+              {...step1.register("email")}
+            />
+            {step1.formState.errors.email && (
+              <p className="text-xs text-destructive">{step1.formState.errors.email.message}</p>
+            )}
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={step1.formState.isSubmitting}>
-            Enviar link
+          <Button
+            type="submit"
+            size="lg"
+            disabled={step1.formState.isSubmitting}
+            className="h-12 w-full text-base"
+          >
+            Enviar
           </Button>
         </form>
       ) : (
-        <form onSubmit={step2.handleSubmit(applyReset)} className="grid gap-4">
+        <form onSubmit={step2.handleSubmit(applyReset)} className="space-y-5">
           <p className="text-sm text-muted-foreground">
             {resetToken === "sent"
-              ? "Se o e-mail existir, você receberá o link (envio real no M10)."
+              ? "Se o e-mail existir, você receberá o link de redefinição."
               : "Token de dev recebido — defina a nova senha:"}
           </p>
           <div className="grid gap-1.5">
@@ -95,15 +112,25 @@ function ResetPage() {
               id="password"
               type="password"
               autoComplete="new-password"
+              className={inputClassName}
               {...step2.register("password")}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={step2.formState.isSubmitting}>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={step2.formState.isSubmitting}
+            className="h-12 w-full text-base"
+          >
             Redefinir senha
           </Button>
         </form>
       )}
-    </AuthCard>
+      <p className="mb-[-4px] mt-4 text-sm text-muted-foreground">
+        Se você quiser voltar para a página de acesso,{" "}
+        <AuthSubtitleLink to="/auth/login">clique aqui</AuthSubtitleLink>.
+      </p>
+    </AuthPageShell>
   );
 }

@@ -23,6 +23,7 @@ import {
   Palette,
   PenLine,
   Phone,
+  ShieldCheck,
   Repeat,
   Search,
   Settings,
@@ -443,7 +444,7 @@ export function AppSidebar() {
                 {session?.accounts.map((account) => (
                   <DropdownMenuItem
                     key={account.id}
-                    onSelect={() => switchAccount(account.id)}
+                    onClick={() => switchAccount(account.id)}
                     className="gap-2"
                   >
                     <span className="flex-grow truncate">{account.name}</span>
@@ -609,12 +610,25 @@ export function AppSidebar() {
             <DropdownMenuGroup>
               <DropdownMenuLabel>{session?.user.name ?? "Minha conta"}</DropdownMenuLabel>
             </DropdownMenuGroup>
+            {session?.user.is_super_admin ? (
+              <>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => void navigate({ to: "/superadmin/accounts" })}
+                    className="gap-2"
+                  >
+                    <ShieldCheck className="size-4" />
+                    Painel superadmin
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               {AVAILABILITY.map((item) => (
                 <DropdownMenuItem
                   key={item.value}
-                  onSelect={() => void setAvailability(item.value)}
+                  onClick={() => void setAvailability(item.value)}
                   className="gap-2"
                 >
                   <span className={cn("size-2 rounded-full", item.dot)} />
@@ -655,7 +669,7 @@ export function AppSidebar() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={() => void logout()} className="gap-2">
+              <DropdownMenuItem onClick={() => void logout()} className="gap-2">
                 <LogOut className="size-4" />
                 Sair
               </DropdownMenuItem>

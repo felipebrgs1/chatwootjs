@@ -12,6 +12,7 @@ export interface SessionUser {
   name: string;
   email: string;
   availability: "online" | "busy" | "offline";
+  is_super_admin?: boolean;
 }
 
 export interface SessionAccount {

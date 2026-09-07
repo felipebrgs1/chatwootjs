@@ -348,13 +348,13 @@ function ContactsPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuGroup>
-                    <DropdownMenuItem onSelect={() => setCreating(true)} className="gap-2">
+                    <DropdownMenuItem onClick={() => setCreating(true)} className="gap-2">
                       <Plus className="size-4" /> Novo contato
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => fileRef.current?.click()} className="gap-2">
+                    <DropdownMenuItem onClick={() => fileRef.current?.click()} className="gap-2">
                       <Upload className="size-4" /> Importar CSV
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => doExport()} className="gap-2">
+                    <DropdownMenuItem onClick={() => doExport()} className="gap-2">
                       <Download className="size-4" /> Exportar
                     </DropdownMenuItem>
                   </DropdownMenuGroup>

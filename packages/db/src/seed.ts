@@ -84,6 +84,12 @@ async function seed(): Promise<void> {
     .insert(superAdmins)
     .values({ email: SUPERADMIN_EMAIL, passwordDigest: superDigest })
     .onConflictDoNothing();
+  // Demo: a admin da conta também é superadmin — assim o atalho
+  // "Painel superadmin" aparece no menu do perfil dela.
+  await db
+    .insert(superAdmins)
+    .values({ email: ADMIN_EMAIL, passwordDigest: superDigest })
+    .onConflictDoNothing();
 
   // ---- M2: inbox Website (widget) demo ----
   let inboxId = (

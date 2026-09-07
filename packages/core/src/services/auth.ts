@@ -53,6 +53,8 @@ export interface AuthUser {
   email: string;
   availability: string;
   uiSettings: unknown;
+  /** true quando o e-mail consta em `super_admins` (vê o console /superadmin). */
+  is_super_admin?: boolean;
 }
 
 export function toApiUser(row: typeof users.$inferSelect): AuthUser {
@@ -386,7 +388,11 @@ export async function getProfile(userId: number): Promise<AuthUser> {
     where: (u, { eq: equals }) => equals(u.id, userId),
   });
   if (!row) throw new NotFoundError("User not found");
-  return toApiUser(row);
+  // Permissão do console /superadmin: e-mail presente em `super_admins`.
+  const superRow = await db.query.superAdmins.findFirst({
+    where: (s, { eq: equals }) => equals(s.email, row.email.toLowerCase()),
+  });
+  return { ...toApiUser(row), is_super_admin: !!superRow };
 }
 
 export async function updateProfile(userId: number, input: UpdateProfileInput): Promise<AuthUser> {

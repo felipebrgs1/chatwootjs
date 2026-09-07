@@ -85,7 +85,7 @@ export function ConversationHeader({
                   <DropdownMenuItem
                     key={macro.id}
                     disabled={macroBusy}
-                    onSelect={() => {
+                    onClick={() => {
                       setMacroBusy(true);
                       void executeMacro(accountId, macro.id, conversation.id)
                         .then(() => {
@@ -120,7 +120,7 @@ export function ConversationHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             {STATUS_OPTIONS.filter((s) => s.value !== conversation.status).map((s) => (
-              <DropdownMenuItem key={s.value} onSelect={() => onStatus(s.value)}>
+              <DropdownMenuItem key={s.value} onClick={() => onStatus(s.value)}>
                 {s.label}
               </DropdownMenuItem>
             ))}
@@ -128,7 +128,7 @@ export function ConversationHeader({
             {SNOOZE_OPTIONS.map((opt) => (
               <DropdownMenuItem
                 key={opt.label}
-                onSelect={() => onSnooze(Math.floor(Date.now() / 1000) + opt.hours * 3600)}
+                onClick={() => onSnooze(Math.floor(Date.now() / 1000) + opt.hours * 3600)}
               >
                 {opt.label}
               </DropdownMenuItem>

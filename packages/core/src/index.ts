@@ -378,6 +378,7 @@ export {
   findInboxByChannel,
   ingestInbound,
   loadChannelContext,
+  parseBandwidthSms,
   parseEvolutionWebhook,
   parseFacebookWebhook,
   parseInboundEmail,
@@ -385,6 +386,7 @@ export {
   parseLineWebhook,
   parseTelegramUpdate,
   parseTwilioSms,
+  parseTwilioWhatsapp,
   parseTwitterWebhook,
   parseVoiceWebhook,
   parseWhatsappWebhook,
@@ -394,6 +396,7 @@ export {
   registerEmailPollerJob,
 } from "./channels/index.js";
 export type {
+  BandwidthSmsWebhook,
   ChannelProvider,
   EvolutionWebhook,
   ExternalChannel,

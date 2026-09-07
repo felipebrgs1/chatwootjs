@@ -294,8 +294,7 @@ export interface TwilioSmsPayload {
   [key: string]: unknown;
 }
 
-export function parseTwilioSms(payload: TwilioSmsPayload): NormalizedInbound | null {
-  if (!payload.MessageSid || !payload.From) return null;
+function twilioMedia(payload: TwilioSmsPayload): NormalizedAttachment[] {
   const numMedia = Number(payload.NumMedia ?? 0);
   const attachments: NormalizedAttachment[] = [];
   for (let i = 0; i < numMedia; i += 1) {
@@ -313,11 +312,74 @@ export function parseTwilioSms(payload: TwilioSmsPayload): NormalizedInbound | n
       attachments.push(att(url, kind));
     }
   }
+  return attachments;
+}
+
+export function parseTwilioSms(payload: TwilioSmsPayload): NormalizedInbound | null {
+  if (!payload.MessageSid || !payload.From) return null;
+  const attachments = twilioMedia(payload);
   return base(`sms:${payload.MessageSid}`, payload.From, {
     contactPhone: payload.From,
     content: payload.Body ?? (attachments.length ? null : ""),
     attachments,
     contentAttributes: { sms_to: payload.To ?? null, sms_provider: "twilio" },
+  });
+}
+
+// ---- WhatsApp via Twilio (form-urlencoded; To/From com prefixo `whatsapp:`) ----
+
+export function parseTwilioWhatsapp(payload: TwilioSmsPayload): NormalizedInbound | null {
+  if (!payload.MessageSid || !payload.From) return null;
+  const strip = (v: string): string => v.replace(/^whatsapp:/, "");
+  const from = strip(payload.From);
+  const to = typeof payload.To === "string" ? strip(payload.To) : null;
+  const attachments = twilioMedia(payload);
+  return base(`twilio-wa:${payload.MessageSid}`, from, {
+    contactPhone: from,
+    contactName:
+      typeof payload.ProfileName === "string" && payload.ProfileName ? payload.ProfileName : null,
+    content: payload.Body ?? (attachments.length ? null : ""),
+    attachments,
+    contentAttributes: { whatsapp_to: to, whatsapp_provider: "twilio" },
+  });
+}
+
+// ---- SMS via Bandwidth (Messaging v2: JSON `message-received`) ----
+
+export interface BandwidthSmsWebhook {
+  type?: string;
+  message?: {
+    id?: string;
+    owner?: string;
+    applicationId?: string;
+    time?: string;
+    direction?: string;
+    to?: string[];
+    from?: string;
+    text?: string;
+    media?: string[];
+    tag?: string;
+  };
+  [key: string]: unknown;
+}
+
+export function parseBandwidthSms(payload: BandwidthSmsWebhook): NormalizedInbound | null {
+  const msg = payload.message;
+  if (payload.type !== "message-received" || !msg?.id || !msg.from) return null;
+  if (msg.direction && msg.direction !== "in") return null;
+  const to = msg.to?.[0] ?? null;
+  const attachments = (msg.media ?? [])
+    .filter((u): u is string => typeof u === "string" && !!u)
+    .map((u) => att(u, "file"));
+  return base(`sms:bw-${msg.id}`, msg.from, {
+    contactPhone: msg.from,
+    content: msg.text ?? (attachments.length ? null : ""),
+    attachments,
+    contentAttributes: {
+      sms_to: to,
+      sms_provider: "bandwidth",
+      sms_application_id: msg.applicationId ?? null,
+    },
   });
 }
 

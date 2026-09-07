@@ -36,6 +36,32 @@ Envio usa `POST {base}/message/sendText/{instance}` (texto) ou
 `POST {base}/message/sendMedia/{instance}` (com anexo: image/video/audio/document
 por `file_type`). Resposta: `source_id = "evolution:<id>"`.
 
+### C) Twilio (provider = twilio)
+
+Envio pela Messages API do Twilio (From/To com prefixo `whatsapp:`).
+Na criação, com `provider = twilio`, preencha:
+
+- `phone_number` (o número Twilio, ex.: `+5511888880000`)
+- `twilio_account_sid` / `twilio_auth_token` (→ `provider_config`; opcional se
+  `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` estiverem no `.env`)
+
+Inbound: configure o webhook do número no console Twilio para
+`POST https://seu-host/webhooks/whatsapp/twilio`
+(form-urlencoded; responde TwiML vazio). `source_id = "twilio-wa:<MessageSid>"`.
+
+### D) 360Dialog (provider = 360dialog)
+
+Envio via `POST https://waba-v2.360dialog.io/messages` (corpo estilo Cloud API,
+templates suportados). Na criação, com `provider = 360dialog`, preencha:
+
+- `phone_number` (conectado no painel 360Dialog)
+- `d360_api_key` (→ `provider_config.api_key`; opcional se `D360_API_KEY` no `.env`)
+
+Inbound: configure o webhook no painel 360Dialog para
+`POST https://seu-host/webhooks/360dialog`
+(mesmo formato Cloud API). Requer `phone_number_id` em `provider_config` ou
+`phone_number` igual ao display number.
+
 Anti-loop: mensagens `fromMe` (eco do nosso envio) viram evento de status e
 não criam mensagem. Grupos (`@g.us`) são ignorados no MVP.
 
@@ -45,6 +71,10 @@ não criam mensagem. Grupos (`@g.us`) são ignorados no MVP.
 WHATSAPP_VERIFY_TOKEN=um-segredo-qualquer   # usado no GET verify
 WHATSAPP_API_KEY=<token-meta>               # fallback se a inbox não tiver token
 WHATSAPP_PHONE_NUMBER_ID=<id>               # fallback se a inbox não tiver id
+TWILIO_ACCOUNT_SID=AC...                    # WhatsApp via Twilio (ou provider_config)
+TWILIO_AUTH_TOKEN=...                       # WhatsApp via Twilio (ou provider_config)
+TWILIO_WHATSAPP_NUMBER=whatsapp:+55...      # From padrão (ou phone_number da inbox)
+D360_API_KEY=<api-key>                      # WhatsApp via 360Dialog (ou provider_config)
 ```
 
 Configure no app Meta a URL de callback `https://seu-host/webhooks/whatsapp`

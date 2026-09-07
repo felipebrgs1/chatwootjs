@@ -164,6 +164,20 @@ export async function toApiInbox(inbox: Inbox): Promise<ApiInbox> {
     if (row) {
       channel = { id: row.id, line_channel_id: row.lineChannelId, line_channel_token: "***" };
     }
+  } else if (inbox.channelType === CHANNEL_TYPE_TO_FACEBOOK) {
+    const row = await db.query.channelFacebookPages.findFirst({
+      where: (c) => eq(c.id, inbox.channelId),
+    });
+    if (row) {
+      channel = { id: row.id, page_id: row.pageId, page_access_token: "***" };
+    }
+  } else if (inbox.channelType === CHANNEL_TYPE_TO_INSTAGRAM) {
+    const row = await db.query.channelInstagrams.findFirst({
+      where: (c) => eq(c.id, inbox.channelId),
+    });
+    if (row) {
+      channel = { id: row.id, instagram_id: row.instagramId, access_token: "***" };
+    }
   }
 
   const hours = await db.query.workingHours.findMany({
@@ -502,6 +516,103 @@ export async function updateInbox(
       if (input.channel.hmac_mandatory !== undefined)
         wp.hmacMandatory = input.channel.hmac_mandatory;
       await tx.update(channelWebWidgets).set(wp).where(eq(channelWebWidgets.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_WHATSAPP) {
+      const wp: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.channel.provider !== undefined) wp.provider = input.channel.provider;
+      if (input.channel.business_management_token !== undefined)
+        wp.businessManagementToken = input.channel.business_management_token ?? null;
+      if (input.channel.phone_number !== undefined) wp.phoneNumber = input.channel.phone_number;
+      if (input.channel.provider_config !== undefined) {
+        const current = await tx.query.channelWhatsapps.findFirst({
+          where: (c) => eq(c.id, inbox.channelId),
+        });
+        wp.providerConfig = {
+          ...((current?.providerConfig ?? {}) as Record<string, unknown>),
+          ...input.channel.provider_config,
+        };
+      }
+      await tx.update(channelWhatsapps).set(wp).where(eq(channelWhatsapps.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_SMS) {
+      const wp: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.channel.provider !== undefined) wp.provider = input.channel.provider;
+      if (input.channel.phone_number !== undefined) wp.phoneNumber = input.channel.phone_number;
+      if (input.channel.provider_config !== undefined) {
+        const current = await tx.query.channelSms.findFirst({
+          where: (c) => eq(c.id, inbox.channelId),
+        });
+        wp.providerConfig = {
+          ...((current?.providerConfig ?? {}) as Record<string, unknown>),
+          ...input.channel.provider_config,
+        };
+      }
+      await tx.update(channelSms).set(wp).where(eq(channelSms.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_TELEGRAM) {
+      const wp: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.channel.bot_token !== undefined) wp.botToken = input.channel.bot_token;
+      await tx.update(channelTelegrams).set(wp).where(eq(channelTelegrams.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_LINE) {
+      const wp: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.channel.line_channel_secret !== undefined)
+        wp.lineChannelSecret = input.channel.line_channel_secret;
+      if (input.channel.line_channel_token !== undefined)
+        wp.lineChannelToken = input.channel.line_channel_token;
+      await tx.update(channelLines).set(wp).where(eq(channelLines.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_FACEBOOK) {
+      const wp: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.channel.page_access_token !== undefined)
+        wp.pageAccessToken = input.channel.page_access_token;
+      await tx
+        .update(channelFacebookPages)
+        .set(wp)
+        .where(eq(channelFacebookPages.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_INSTAGRAM) {
+      const wp: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.channel.access_token !== undefined) wp.accessToken = input.channel.access_token;
+      await tx.update(channelInstagrams).set(wp).where(eq(channelInstagrams.id, inbox.channelId));
+    }
+
+    if (input.channel && inbox.channelType === CHANNEL_TYPE_TO_API) {
+      const voicePatch: Record<string, unknown> = {};
+      if (input.channel.voice_provider !== undefined)
+        voicePatch.voice_provider = input.channel.voice_provider;
+      if (input.channel.voice_twiml_url !== undefined)
+        voicePatch.twilio_twiml_url = input.channel.voice_twiml_url;
+      if (input.channel.voice_status_callback !== undefined)
+        voicePatch.twilio_status_callback = input.channel.voice_status_callback;
+      if (input.channel.voice_twilio_account_sid !== undefined)
+        voicePatch.twilio_account_sid = input.channel.voice_twilio_account_sid;
+      if (input.channel.voice_twilio_auth_token !== undefined)
+        voicePatch.twilio_auth_token = input.channel.voice_twilio_auth_token;
+      if (input.channel.voice_twilio_from !== undefined)
+        voicePatch.twilio_from = input.channel.voice_twilio_from;
+      if (Object.keys(voicePatch).length) {
+        const current = await tx.query.channelApi.findFirst({
+          where: (c) => eq(c.id, inbox.channelId),
+        });
+        const attrs = ((current?.additionalAttributes ?? {}) as Record<string, unknown>).voice;
+        await tx
+          .update(channelApi)
+          .set({
+            updatedAt: new Date(),
+            additionalAttributes: {
+              ...((current?.additionalAttributes ?? {}) as Record<string, unknown>),
+              voice: { ...((attrs ?? {}) as Record<string, unknown>), ...voicePatch },
+            },
+          })
+          .where(eq(channelApi.id, inbox.channelId));
+      }
     }
   });
 

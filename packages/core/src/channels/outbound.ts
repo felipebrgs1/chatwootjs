@@ -11,7 +11,7 @@ import { db, messages } from "@chatwootjs/db";
 import { and, eq } from "drizzle-orm";
 
 import { jobs } from "../jobs/index.js";
-import { providerFor } from "./providers.js";
+import { PROVIDERS, providerFor } from "./providers.js";
 import type { OutboundContext, OutboundMessage } from "./types.js";
 
 function toSnakeKeys(row: Record<string, unknown>): Record<string, unknown> {
@@ -143,12 +143,19 @@ export function registerChannelSendJob(): void {
 
     const ctx = await loadChannelContext(accountId, conv.inboxId);
     if (!ctx) return;
-    const provider = providerFor(ctx.channelType);
-    // WebWidget/API/Voice-stub e canais sem provider: nada a enviar.
+    // Voice via Twilio mora numa inbox Channel::Api com voice_provider em
+    // additional_attributes (ver docs/canais/voice.md); demais Api seguem sem envio.
+    const voiceCfg = (((ctx.channelConfig.additionalAttributes ?? {}) as Record<string, unknown>)
+      .voice ?? {}) as Record<string, unknown>;
+    const provider =
+      ctx.channelType === "Channel::Api" && voiceCfg.voice_provider === "twilio"
+        ? PROVIDERS.voice
+        : providerFor(ctx.channelType);
+    // WebWidget/API (não-voz) e canais sem provider: nada a enviar.
     if (
       !provider ||
       ctx.channelType === "Channel::WebWidget" ||
-      ctx.channelType === "Channel::Api"
+      (ctx.channelType === "Channel::Api" && voiceCfg.voice_provider !== "twilio")
     ) {
       return;
     }

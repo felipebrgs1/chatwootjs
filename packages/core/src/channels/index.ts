@@ -9,6 +9,7 @@ export type {
 } from "./types.js";
 export { CHANNEL_TYPE_TO_EXTERNAL } from "./types.js";
 export {
+  parseBandwidthSms,
   parseEvolutionWebhook,
   parseFacebookWebhook,
   parseInboundEmail,
@@ -16,11 +17,13 @@ export {
   parseLineWebhook,
   parseTelegramUpdate,
   parseTwilioSms,
+  parseTwilioWhatsapp,
   parseTwitterWebhook,
   parseVoiceWebhook,
   parseWhatsappWebhook,
 } from "./parsers.js";
 export type {
+  BandwidthSmsWebhook,
   EvolutionWebhook,
   InboundEmail,
   LineWebhook,

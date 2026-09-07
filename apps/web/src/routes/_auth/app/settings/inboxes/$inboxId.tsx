@@ -359,6 +359,23 @@ function InboxDetail() {
             IMAP/SMTP completos chegam no M10.
           </section>
         )}
+        {tab === "configuration" &&
+          (inbox?.channel_type === "Channel::Whatsapp" ||
+            inbox?.channel_type === "Channel::Sms" ||
+            inbox?.channel_type === "Channel::Telegram" ||
+            inbox?.channel_type === "Channel::Line" ||
+            inbox?.channel_type === "Channel::FacebookPage" ||
+            inbox?.channel_type === "Channel::Instagram" ||
+            inbox?.channel_type === "Channel::Api") && (
+            <ChannelConfigSection
+              key={inbox?.id}
+              inbox={inbox}
+              accountId={accountId}
+              inboxId={Number(inboxId)}
+              isAdmin={isAdmin}
+              onSaved={refreshInbox}
+            />
+          )}
       </main>
     </div>
   );
@@ -642,6 +659,274 @@ function AgentBotSection({
         </div>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
+    </section>
+  );
+}
+
+/** Configuração de canais externos: callbacks + credenciais (PATCH admin, segredos mascarados). */
+function ChannelConfigSection({
+  inbox,
+  accountId,
+  inboxId,
+  isAdmin,
+  onSaved,
+}: {
+  inbox: ApiInbox;
+  accountId: number;
+  inboxId: number;
+  isAdmin: boolean;
+  onSaved: () => Promise<void>;
+}) {
+  const ch = inbox.channel as Record<string, unknown>;
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, [k]: e.target.value }));
+
+  async function save(patch: Record<string, unknown>): Promise<void> {
+    setError(null);
+    setSaved(false);
+    setSaving(true);
+    try {
+      await apiFetch(`/api/v1/accounts/${accountId}/inboxes/${inboxId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ channel: patch }),
+      });
+      setValues({});
+      await onSaved();
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erro inesperado");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const secretField = (key: string, label: string) => (
+    <div className="grid gap-1.5" key={key}>
+      <Label htmlFor={`cfg-${key}`}>{label}</Label>
+      <Input
+        id={`cfg-${key}`}
+        type="password"
+        placeholder="(mantido)"
+        disabled={!isAdmin}
+        value={values[key] ?? ""}
+        onChange={set(key)}
+      />
+    </div>
+  );
+
+  const textField = (key: string, label: string, initial: string) => (
+    <div className="grid gap-1.5" key={key}>
+      <Label htmlFor={`cfg-${key}`}>{label}</Label>
+      <Input
+        id={`cfg-${key}`}
+        disabled={!isAdmin}
+        value={values[key] ?? initial}
+        onChange={set(key)}
+      />
+    </div>
+  );
+
+  const urlRow = (label: string, url: string) => (
+    <div className="grid gap-1.5" key={url}>
+      <p className="text-sm font-medium">{label}</p>
+      <pre className="overflow-x-auto rounded bg-muted p-2 text-xs">{url}</pre>
+      <CopyButton text={url} />
+    </div>
+  );
+
+  const provider = str(ch.provider) || "default";
+  const type = inbox.channel_type;
+
+  let callback: string | null = null;
+  if (type === "Channel::Whatsapp") {
+    callback =
+      provider === "evolution"
+        ? `${SERVER_URL}/webhooks/evolution`
+        : provider === "twilio"
+          ? `${SERVER_URL}/webhooks/whatsapp/twilio`
+          : provider === "360dialog" || provider === "360_dialog"
+            ? `${SERVER_URL}/webhooks/360dialog`
+            : `${SERVER_URL}/webhooks/whatsapp`;
+  } else if (type === "Channel::Sms") {
+    callback = `${SERVER_URL}/webhooks/sms/${provider === "bandwidth" ? "bandwidth" : "twilio"}`;
+  } else if (type === "Channel::Line") {
+    callback = `${SERVER_URL}/webhooks/line`;
+  } else if (type === "Channel::FacebookPage") {
+    callback = `${SERVER_URL}/webhooks/facebook`;
+  } else if (type === "Channel::Instagram") {
+    callback = `${SERVER_URL}/webhooks/instagram`;
+  }
+
+  // Campos editáveis por tipo → patch do PATCH /inboxes/:id (merge parcial).
+  function buildPatch(): Record<string, unknown> {
+    const filled = (k: string): string | undefined => {
+      const v = (values[k] ?? "").trim();
+      return v ? v : undefined;
+    };
+    const pc: Record<string, unknown> = {};
+    const putPc = (k: string, v: string | undefined): void => {
+      if (v !== undefined) pc[k] = v;
+    };
+    if (type === "Channel::Whatsapp") {
+      putPc("phone_number_id", filled("phone_number_id"));
+      putPc("evolution_base_url", filled("evolution_base_url"));
+      putPc("evolution_instance", filled("evolution_instance"));
+      putPc("evolution_apikey", filled("evolution_apikey"));
+      putPc("api_key", filled("d360_api_key"));
+      putPc("twilio_account_sid", filled("twilio_account_sid"));
+      putPc("twilio_auth_token", filled("twilio_auth_token"));
+      const patch: Record<string, unknown> = {};
+      if (Object.keys(pc).length) patch.provider_config = pc;
+      const bmt = filled("business_management_token");
+      if (bmt !== undefined) patch.business_management_token = bmt;
+      const phone = filled("phone_number");
+      if (phone !== undefined) patch.phone_number = phone;
+      const prov = filled("provider");
+      if (prov !== undefined) patch.provider = prov;
+      return patch;
+    }
+    if (type === "Channel::Sms") {
+      putPc("bandwidth_account_id", filled("bandwidth_account_id"));
+      putPc("bandwidth_api_key", filled("bandwidth_api_key"));
+      putPc("bandwidth_api_secret", filled("bandwidth_api_secret"));
+      putPc("bandwidth_application_id", filled("bandwidth_application_id"));
+      putPc("account_sid", filled("twilio_account_sid"));
+      putPc("auth_token", filled("twilio_auth_token"));
+      const patch: Record<string, unknown> = {};
+      if (Object.keys(pc).length) patch.provider_config = pc;
+      const prov = filled("provider");
+      if (prov !== undefined) patch.provider = prov;
+      return patch;
+    }
+    if (type === "Channel::Telegram") {
+      const t = filled("bot_token");
+      return t !== undefined ? { bot_token: t } : {};
+    }
+    if (type === "Channel::Line") {
+      const patch: Record<string, unknown> = {};
+      const s = filled("line_channel_secret");
+      const tk = filled("line_channel_token");
+      if (s !== undefined) patch.line_channel_secret = s;
+      if (tk !== undefined) patch.line_channel_token = tk;
+      return patch;
+    }
+    if (type === "Channel::FacebookPage") {
+      const t = filled("page_access_token");
+      return t !== undefined ? { page_access_token: t } : {};
+    }
+    if (type === "Channel::Instagram") {
+      const t = filled("access_token");
+      return t !== undefined ? { access_token: t } : {};
+    }
+    if (type === "Channel::Api") {
+      const patch: Record<string, unknown> = {};
+      const vp = filled("voice_provider");
+      if (vp !== undefined) patch.voice_provider = vp;
+      const tu = filled("voice_twiml_url");
+      if (tu !== undefined) patch.voice_twiml_url = tu;
+      const sc = filled("voice_status_callback");
+      if (sc !== undefined) patch.voice_status_callback = sc;
+      const sid = filled("voice_twilio_account_sid");
+      if (sid !== undefined) patch.voice_twilio_account_sid = sid;
+      const tok = filled("voice_twilio_auth_token");
+      if (tok !== undefined) patch.voice_twilio_auth_token = tok;
+      const from = filled("voice_twilio_from");
+      if (from !== undefined) patch.voice_twilio_from = from;
+      return patch;
+    }
+    return {};
+  }
+
+  return (
+    <section className="grid gap-3 rounded-lg border bg-card p-4">
+      <h2 className="text-sm font-medium">
+        Provedor: {provider}
+        {str(ch.phone_number) ? ` · ${str(ch.phone_number)}` : ""}
+      </h2>
+      {callback && urlRow("URL de callback (configure na plataforma)", callback)}
+      {(type === "Channel::Whatsapp" && provider === "default") ||
+      type === "Channel::FacebookPage" ||
+      type === "Channel::Instagram" ? (
+        <p className="text-xs text-muted-foreground">
+          Verificação Meta (GET hub.*): use o mesmo verify token configurado no servidor
+          (WHATSAPP_VERIFY_TOKEN / FACEBOOK_VERIFY_TOKEN).
+        </p>
+      ) : null}
+      {type === "Channel::Telegram" && (
+        <p className="text-xs text-muted-foreground">
+          Webhook do Telegram: POST {SERVER_URL}/webhooks/telegram/&lt;bot_token&gt; (trocar o token
+          abaixo muda a URL).
+        </p>
+      )}
+      {type === "Channel::Whatsapp" && (
+        <>
+          {textField("provider", "Provider", provider)}
+          {textField("phone_number", "Número", str(ch.phone_number))}
+          {secretField("business_management_token", "Token Meta (Business Management)")}
+          {textField("phone_number_id", "Phone Number ID (provider_config)", "")}
+          {textField("evolution_base_url", "Evolution base URL (provider_config)", "")}
+          {textField("evolution_instance", "Evolution instance (provider_config)", "")}
+          {secretField("evolution_apikey", "Evolution API key (provider_config)")}
+          {secretField("d360_api_key", "API key 360Dialog (provider_config)")}
+          {textField("twilio_account_sid", "Twilio Account SID (provider_config)", "")}
+          {secretField("twilio_auth_token", "Twilio Auth Token (provider_config)")}
+        </>
+      )}
+      {type === "Channel::Sms" && (
+        <>
+          {textField("provider", "Provider (twilio ou bandwidth)", provider)}
+          {textField("bandwidth_account_id", "Bandwidth Account ID (provider_config)", "")}
+          {textField("bandwidth_api_key", "Bandwidth API Key (provider_config)", "")}
+          {secretField("bandwidth_api_secret", "Bandwidth API Secret (provider_config)")}
+          {textField("bandwidth_application_id", "Bandwidth Application ID (provider_config)", "")}
+          {textField("twilio_account_sid", "Twilio Account SID (provider_config)", "")}
+          {secretField("twilio_auth_token", "Twilio Auth Token (provider_config)")}
+        </>
+      )}
+      {type === "Channel::Telegram" && secretField("bot_token", "Token do bot (@BotFather)")}
+      {type === "Channel::Line" && (
+        <>
+          {secretField("line_channel_secret", "Channel secret")}
+          {secretField("line_channel_token", "Channel access token")}
+        </>
+      )}
+      {type === "Channel::FacebookPage" && secretField("page_access_token", "Page access token")}
+      {type === "Channel::Instagram" && secretField("access_token", "Access token")}
+      {type === "Channel::Api" && (
+        <>
+          {urlRow("TwiML (VoiceUrl no console Twilio)", `${SERVER_URL}/webhooks/voice/twiml`)}
+          {str(ch.identifier)
+            ? urlRow(
+                "Status callback",
+                `${SERVER_URL}/webhooks/voice?identifier=${str(ch.identifier)}`,
+              )
+            : null}
+          {textField("voice_provider", "Provedor de voz (vazio ou twilio)", "")}
+          {textField("voice_twiml_url", "TwiML URL (voz)", "")}
+          {textField("voice_status_callback", "Status callback (voz)", "")}
+          {textField("voice_twilio_account_sid", "Twilio Account SID (voz)", "")}
+          {secretField("voice_twilio_auth_token", "Twilio Auth Token (voz)")}
+          {textField("voice_twilio_from", "Número Twilio (voz)", "")}
+        </>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {saved && <p className="text-sm text-green-600">Salvo.</p>}
+      {isAdmin && (
+        <Button
+          type="button"
+          disabled={saving}
+          className="w-fit"
+          onClick={() => void save(buildPatch())}
+        >
+          Salvar configuração
+        </Button>
+      )}
     </section>
   );
 }

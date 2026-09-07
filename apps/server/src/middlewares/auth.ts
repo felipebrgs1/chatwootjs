@@ -72,6 +72,6 @@ export async function authAccount(c: Context, next: Next): Promise<Response | vo
   if (!membership) {
     throw new ForbiddenError("No access to this account");
   }
-  c.set("auth", { userId, accountId, role: toRole(membership.role) });
+  c.set("auth", { userId, accountId, role: toRole(membership.role ?? 0) });
   await next();
 }

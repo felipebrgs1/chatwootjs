@@ -4,9 +4,11 @@
  *
  * Rotas (métodos espelham o Rails onde existem):
  * - GET/POST /webhooks/whatsapp, /webhooks/facebook, /webhooks/instagram
+ * - POST /webhooks/whatsapp/twilio (Twilio WhatsApp), POST /webhooks/360dialog
  * - POST /webhooks/evolution (Evolution API, gateway WhatsApp self-hosted)
- * - POST /webhooks/telegram/:bot_token, /webhooks/twitter, /webhooks/sms/:provider,
- *   POST /webhooks/email, /webhooks/line, /webhooks/voice
+ * - POST /webhooks/telegram/:bot_token, /webhooks/twitter, /webhooks/sms/:provider
+ *   (twilio form-urlencoded ou bandwidth JSON),
+ *   POST /webhooks/email, /webhooks/line, /webhooks/voice (+ GET /voice/twiml)
  *
  * Inbound: parser puro → resolve inbox → `ingestInbound` (idempotente por
  * `source_id` → contato+conversa+mensagem, realtime via M4).
@@ -16,6 +18,7 @@ import {
   findInboxByChannel,
   ingestInbound,
   type LineWebhook,
+  parseBandwidthSms,
   parseEvolutionWebhook,
   parseFacebookWebhook,
   parseInboundEmail,
@@ -23,6 +26,7 @@ import {
   parseLineWebhook,
   parseTelegramUpdate,
   parseTwilioSms,
+  parseTwilioWhatsapp,
   parseTwitterWebhook,
   parseVoiceWebhook,
   parseWhatsappWebhook,
@@ -93,7 +97,65 @@ app.post("/whatsapp", async (c) => {
   }
 });
 
-// ---- Evolution API (gateway WhatsApp self-hosted) ----
+// ---- WhatsApp via Twilio (form-urlencoded; To/From com prefixo `whatsapp:`) ----
+
+app.post("/whatsapp/twilio", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const flat: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(body)) flat[k] = typeof v === "string" ? v : String(v);
+    const item = parseTwilioWhatsapp(flat);
+    if (!item) return c.json({ error: "invalid whatsapp payload" }, 422);
+    const dest = (item.contentAttributes.whatsapp_to as string | undefined) ?? undefined;
+    const inbox = await findInboxByChannel("Channel::Whatsapp", async (inboxRow) => {
+      const row = await db.query.channelWhatsapps.findFirst({
+        where: (t) => eq(t.id, inboxRow.channelId),
+      });
+      if (!row) return false;
+      if (row.provider !== "twilio" && row.provider !== "default") return false;
+      if (!dest) return row.provider === "twilio";
+      const norm = (n: string): string => n.replace(/^whatsapp:\+?/, "").replace(/^\+/, "");
+      return norm(row.phoneNumber) === norm(dest);
+    });
+    if (!inbox) return c.json({ error: "whatsapp twilio inbox not found" }, 404);
+    const counts = await ingestAll(inbox.accountId, inbox.id, [item]);
+    // TwiML vazio (só confirma recebimento; a resposta sai pelo dashboard).
+    c.header("Content-Type", "text/xml");
+    return c.body(`<Response/><!-- ingested=${counts.ingested} -->`, 200);
+  } catch (err) {
+    console.error("[webhooks/whatsapp/twilio]", err);
+    return c.json({ error: "ingest failed" }, 500);
+  }
+});
+
+// ---- 360Dialog (mesmo formato Cloud API; resolve pela inbox provider=360dialog) ----
+
+app.post("/360dialog", async (c) => {
+  try {
+    const payload = await c.req.json();
+    const items = parseWhatsappWebhook(payload);
+    const first = payload?.entry?.[0]?.changes?.[0]?.value;
+    const phoneNumberId = first?.metadata?.phone_number_id as string | undefined;
+    const displayNumber = first?.metadata?.display_phone_number as string | undefined;
+    const inbox = await findInboxByChannel("Channel::Whatsapp", async (inboxRow) => {
+      const row = await db.query.channelWhatsapps.findFirst({
+        where: (t) => eq(t.id, inboxRow.channelId),
+      });
+      if (!row) return false;
+      if (row.provider !== "360dialog" && row.provider !== "360_dialog") return false;
+      const cfg = (row.providerConfig ?? {}) as Record<string, unknown>;
+      if (phoneNumberId && cfg.phone_number_id === phoneNumberId) return true;
+      if (displayNumber && row.phoneNumber === displayNumber) return true;
+      return false;
+    });
+    if (!inbox) return c.json({ error: "360dialog inbox not found" }, 404);
+    const counts = await ingestAll(inbox.accountId, inbox.id, items);
+    return c.json({ ok: true, ...counts });
+  } catch (err) {
+    console.error("[webhooks/360dialog]", err);
+    return c.json({ error: "ingest failed" }, 500);
+  }
+});
 
 app.post("/evolution", async (c) => {
   try {
@@ -235,10 +297,28 @@ app.post("/twitter", async (c) => {
   }
 });
 
-// ---- SMS (Twilio form-urlencoded; :provider permite bandwidth no futuro) ----
+// ---- SMS (Twilio form-urlencoded; Bandwidth JSON no mesmo :provider) ----
 
 app.post("/sms/:provider", async (c) => {
   try {
+    const providerParam = c.req.param("provider");
+    if (providerParam === "bandwidth") {
+      const payload = await c.req.json();
+      const item = parseBandwidthSms(payload);
+      if (!item) return c.json({ error: "invalid sms payload" }, 422);
+      const to = item.contentAttributes.sms_to as string | undefined;
+      const inbox = await findInboxByChannel("Channel::Sms", async (inboxRow) => {
+        const row = await db.query.channelSms.findFirst({
+          where: (t) => eq(t.id, inboxRow.channelId),
+        });
+        if (!row) return false;
+        if (row.provider !== "bandwidth") return false;
+        return !to || row.phoneNumber === to;
+      });
+      if (!inbox) return c.json({ error: "sms inbox not found" }, 404);
+      const counts = await ingestAll(inbox.accountId, inbox.id, [item]);
+      return c.json({ ok: true, ...counts });
+    }
     const body = await c.req.parseBody();
     const flat: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(body)) flat[k] = typeof v === "string" ? v : String(v);
@@ -322,6 +402,20 @@ app.post("/line", async (c) => {
     console.error("[webhooks/line]", err);
     return c.json({ error: "ingest failed" }, 500);
   }
+});
+
+// ---- Voice: TwiML para chamadas Twilio (VoiceUrl da inbox) ----
+
+app.get("/voice/twiml", (c) => {
+  const say = c.req.query("say") ?? "Sua chamada foi recebida. Um atendente já vai falar com você.";
+  const record = c.req.query("record") !== "false";
+  const twiml =
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<Response><Say voice="alice" language="pt-BR">${say.replace(/[<>&]/g, "")}</Say>` +
+    (record ? `<Record/>` : ``) +
+    `</Response>`;
+  c.header("Content-Type", "text/xml");
+  return c.body(twiml, 200);
 });
 
 // ---- Voice (stub: registra a chamada como mensagem; ?identifier= resolve a inbox API) ----

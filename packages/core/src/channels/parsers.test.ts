@@ -11,7 +11,9 @@ import {
   parseInstagramWebhook,
   parseLineWebhook,
   parseTelegramUpdate,
+  parseBandwidthSms,
   parseTwilioSms,
+  parseTwilioWhatsapp,
   parseTwitterWebhook,
   parseVoiceWebhook,
   parseWhatsappWebhook,
@@ -177,6 +179,48 @@ describe("sms twilio", () => {
   });
   test("sem sid → null", () => {
     expect(parseTwilioSms({ From: "+55" })).toBeNull();
+  });
+});
+
+describe("whatsapp twilio", () => {
+  test("form com prefixo whatsapp:", () => {
+    const msg = parseTwilioWhatsapp({
+      MessageSid: "SM9",
+      From: "whatsapp:+5511999990000",
+      To: "whatsapp:+5511888880000",
+      Body: "oi",
+      ProfileName: "Ada",
+    });
+    expect(msg?.sourceId).toBe("twilio-wa:SM9");
+    expect(msg?.contactPhone).toBe("+5511999990000");
+    expect(msg?.contactName).toBe("Ada");
+    expect(msg?.contentAttributes.whatsapp_to).toBe("+5511888880000");
+  });
+  test("sem sid → null", () => {
+    expect(parseTwilioWhatsapp({ From: "whatsapp:+55" })).toBeNull();
+  });
+});
+
+describe("sms bandwidth", () => {
+  test("message-received", () => {
+    const msg = parseBandwidthSms({
+      type: "message-received",
+      message: {
+        id: "m-1",
+        direction: "in",
+        to: ["+5511888880000"],
+        from: "+5511999990000",
+        text: "ping",
+        applicationId: "app-1",
+      },
+    });
+    expect(msg?.sourceId).toBe("sms:bw-m-1");
+    expect(msg?.content).toBe("ping");
+    expect(msg?.contentAttributes.sms_provider).toBe("bandwidth");
+  });
+  test("outros eventos → null", () => {
+    expect(parseBandwidthSms({ type: "message-delivered", message: { id: "m-2" } })).toBeNull();
+    expect(parseBandwidthSms({ type: "message-received" })).toBeNull();
   });
 });
 

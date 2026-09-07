@@ -148,6 +148,24 @@ export const UpdateInboxSchema = z.object({
       welcome_tagline: z.string().nullish(),
       pre_chat_form_enabled: z.boolean().optional(),
       hmac_mandatory: z.boolean().optional(),
+      // Credenciais de canais externos (Configuração da inbox; merge parcial,
+      // nunca expostas na leitura — toApiInbox mascara segredos).
+      provider: z.string().trim().optional(),
+      provider_config: z.record(z.string(), z.unknown()).optional(),
+      business_management_token: z.string().nullish(),
+      phone_number: z.string().trim().optional(),
+      bot_token: z.string().trim().optional(),
+      line_channel_secret: z.string().trim().optional(),
+      line_channel_token: z.string().trim().optional(),
+      page_access_token: z.string().trim().optional(),
+      access_token: z.string().trim().optional(),
+      // Voz via Twilio (inbox Channel::Api; vai para additional_attributes.voice).
+      voice_provider: z.string().trim().optional(),
+      voice_twiml_url: z.string().trim().optional(),
+      voice_status_callback: z.string().trim().optional(),
+      voice_twilio_account_sid: z.string().trim().optional(),
+      voice_twilio_auth_token: z.string().trim().optional(),
+      voice_twilio_from: z.string().trim().optional(),
     })
     .optional(),
 });

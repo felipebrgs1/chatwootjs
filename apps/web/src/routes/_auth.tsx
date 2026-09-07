@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { CommandPalette } from "@/components/search/CommandPalette";
 import { SessionProvider } from "@/components/session-provider";
 import { getAccessToken } from "@/lib/auth";
 
@@ -23,6 +24,7 @@ function AuthLayout() {
           <Outlet />
         </div>
       </div>
+      <CommandPalette />
     </SessionProvider>
   );
 }

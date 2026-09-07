@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@chatwootjs/ui/components/empty-state";
 
-import { useCable, type CableEvent } from "@/hooks/useCable";
+import { sendPresence, useCable, type CableEvent } from "@/hooks/useCable";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useSessionContext } from "@/components/session-provider";
 import { ApiError } from "@/lib/auth";
 import {
@@ -21,6 +22,12 @@ import {
 } from "@/lib/conversations";
 import { ConversationHeader } from "./ConversationHeader";
 import { ConversationList, type SortChip, type StatusChip } from "./ConversationList";
+import {
+  createCustomFilter,
+  deleteCustomFilter,
+  listCustomFilters,
+  type CustomFilter,
+} from "@/lib/notifications";
 import { DetailsPanel } from "./DetailsPanel";
 import { ReplyBox } from "./ReplyBox";
 import { Thread } from "./Thread";
@@ -60,8 +67,86 @@ export function ConversationsPage({
   const [labels, setLabels] = useState<Array<{ id: number; title: string; color: string }>>([]);
   const [typingConv, setTypingConv] = useState<number | null>(null);
   const [lastEvent, setLastEvent] = useState<{ n: number; event: CableEvent } | null>(null);
+  const [views, setViews] = useState<CustomFilter[]>([]);
+  const [activeViewId, setActiveViewId] = useState<number | null>(null);
   const eventSeq = useRef(0);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // M11: heartbeat de presença (30s) — o servidor publica `presence.update`.
+  useEffect(() => {
+    if (!accountId) return;
+    const status = session?.user.availability ?? "online";
+    sendPresence(accountId, status);
+    const timer = setInterval(() => sendPresence(accountId, status), 30_000);
+    return () => {
+      clearInterval(timer);
+      sendPresence(accountId, "offline");
+    };
+  }, [accountId, session?.user.availability]);
+
+  // M11: views salvas (custom_filters).
+  const reloadViews = useCallback(async () => {
+    if (!accountId) return;
+    try {
+      setViews(await listCustomFilters(accountId));
+    } catch {
+      /* sem sessão */
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!accountId) return;
+    void listCustomFilters(accountId)
+      .then((list) => {
+        if (!cancelled) setViews(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  function currentViewQuery(): Record<string, unknown> {
+    return {
+      status: filters.status,
+      assignee: filters.assignee,
+      q: filters.query || undefined,
+      inbox_id: filters.inboxId,
+      labels: filters.labels?.length ? filters.labels : undefined,
+      sort_by: filters.sort,
+    };
+  }
+
+  function applyView(view: CustomFilter): void {
+    setActiveViewId(view.id);
+    const q = view.query;
+    onFilters({
+      status: (typeof q.status === "string" ? q.status : "open") as StatusChip,
+      assignee: (typeof q.assignee === "string" ? q.assignee : "me") as AssigneeType,
+      query: typeof q.q === "string" ? q.q : "",
+      inboxId: typeof q.inbox_id === "number" ? q.inbox_id : undefined,
+      labels: Array.isArray(q.labels) ? (q.labels as string[]) : undefined,
+      sort: (typeof q.sort_by === "string" ? q.sort_by : undefined) as SortChip | undefined,
+    });
+  }
+
+  async function saveView(name: string): Promise<void> {
+    if (!accountId) return;
+    const created = await createCustomFilter(accountId, {
+      name,
+      query: currentViewQuery(),
+    });
+    setActiveViewId(created.id);
+    await reloadViews();
+  }
+
+  async function removeView(id: number): Promise<void> {
+    if (!accountId) return;
+    await deleteCustomFilter(accountId, id);
+    if (activeViewId === id) setActiveViewId(null);
+    await reloadViews();
+  }
 
   const loadList = useCallback(async () => {
     if (!accountId) return;
@@ -153,13 +238,33 @@ export function ConversationsPage({
         allCount={counts.all}
         sort={filters.sort ?? "latest"}
         hasFilters={Boolean(filters.inboxId || filters.labels?.length || filters.query)}
-        onStatus={(status) => onFilters({ ...filters, status })}
-        onAssignee={(assignee) => onFilters({ ...filters, assignee })}
-        onSort={(sort) => onFilters({ ...filters, sort })}
-        onClearFilters={() =>
-          onFilters({ status: filters.status, assignee: filters.assignee, query: "" })
-        }
+        onStatus={(status) => {
+          setActiveViewId(null);
+          onFilters({ ...filters, status });
+        }}
+        onAssignee={(assignee) => {
+          setActiveViewId(null);
+          onFilters({ ...filters, assignee });
+        }}
+        onSort={(sort) => {
+          setActiveViewId(null);
+          onFilters({ ...filters, sort });
+        }}
+        onClearFilters={() => {
+          setActiveViewId(null);
+          onFilters({ status: filters.status, assignee: filters.assignee, query: "" });
+        }}
         accountLabels={labels}
+        views={views}
+        activeViewId={activeViewId}
+        onSelectView={(id) => {
+          const view = views.find((v) => v.id === id);
+          if (view) applyView(view);
+          else setActiveViewId(null);
+        }}
+        onSaveView={(name) => void saveView(name)}
+        onDeleteView={(id) => void removeView(id)}
+        headerActions={accountId ? <NotificationBell accountId={accountId} /> : undefined}
       />
       {selectedId === null ? (
         <div className="flex flex-1 items-center justify-center bg-woot-bg">

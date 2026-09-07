@@ -1,6 +1,7 @@
 import {
   AtSign,
   BarChart3,
+  Bell,
   BookOpen,
   Building2,
   Check,
@@ -243,6 +244,12 @@ export function AppSidebar() {
         },
         { label: "SMS", to: "/app/campaigns", search: { type: "one_off" }, icon: MessageCircle },
       ],
+    },
+    {
+      label: "Notificações",
+      icon: Bell,
+      to: "/app/notifications",
+      children: [{ label: "Todas as notificações", to: "/app/notifications", icon: Bell }],
     },
     {
       label: "Central de Ajuda",

@@ -57,6 +57,13 @@
       "when": 1788734339763,
       "tag": "0007_icy_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788741552411,
+      "tag": "0008_wet_sharon_carter",
+      "breakpoints": true
     }
   ]
 }

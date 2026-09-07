@@ -574,6 +574,19 @@ export async function assignConversation(
 
   const fresh = await findConversation(accountId, row.id);
   publish(accountId, "conversation.updated", await toApiConversationItem(fresh));
+  // M11: assign gera notificação realtime (menos auto-assign pelo próprio).
+  if (assignee && assignee.id !== auth.userId) {
+    const { notify } = await import("./notifications.js");
+    await notify({
+      accountId,
+      userId: assignee.id,
+      type: "assigned_conversation",
+      notificableType: "Conversation",
+      notificableId: row.id,
+      conversationId: row.id,
+      actorName: name,
+    });
+  }
   return toApiConversationDetail(fresh);
 }
 

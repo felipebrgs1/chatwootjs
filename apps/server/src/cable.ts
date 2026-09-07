@@ -1,4 +1,11 @@
-import { loadMembership, publish, subscribe, verifyAccessToken } from "@chatwootjs/core";
+import {
+  dropPresence,
+  loadMembership,
+  publish,
+  subscribe,
+  touchPresence,
+  verifyAccessToken,
+} from "@chatwootjs/core";
 import type { RealtimeEvent } from "@chatwootjs/core";
 import { createBunWebSocket } from "hono/bun";
 
@@ -111,7 +118,12 @@ export const cableRoute = upgradeWebSocket(async (c) => {
       } else if (payload.command === "unsubscribe" && payload.identifier) {
         ws.send(JSON.stringify({ type: "confirm_unsubscription", identifier: payload.identifier }));
       } else if (payload.command === "message" && payload.identifier && payload.data) {
-        let parsed: { action?: string; account_id?: number; conversation_id?: number };
+        let parsed: {
+          action?: string;
+          account_id?: number;
+          conversation_id?: number;
+          status?: string;
+        };
         try {
           parsed = JSON.parse(payload.data);
         } catch {
@@ -128,11 +140,19 @@ export const cableRoute = upgradeWebSocket(async (c) => {
             user_id: authedUserId,
           });
         }
+        // heartbeat de presença (30s no front) → publica `presence.update`.
+        if (parsed.action === "presence" && parsed.account_id && rooms.has(parsed.account_id)) {
+          const status =
+            parsed.status === "busy" || parsed.status === "offline" ? parsed.status : "online";
+          touchPresence(parsed.account_id, authedUserId, status);
+        }
       }
     },
     onClose() {
       for (const unsub of unsubs) unsub();
       unsubs = [];
+      // Socket caiu → agente sai da lista de online de cada sala.
+      for (const accountId of rooms) dropPresence(accountId, authedUserId);
     },
   };
 });

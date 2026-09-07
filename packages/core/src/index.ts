@@ -73,6 +73,8 @@ export { InProcessRunner, jobs } from "./jobs/index.js";
 export type { Job, JobHandler, JobRunner } from "./jobs/index.js";
 export { publish, realtime, subscribe, unsubscribe } from "./realtime/index.js";
 export type { RealtimeEvent, RealtimeHandler, RealtimeMessage } from "./realtime/index.js";
+export { clearPresence, dropPresence, listPresence, touchPresence } from "./realtime/presence.js";
+export type { PresenceEntry, PresenceStatus } from "./realtime/presence.js";
 export {
   ChannelSchema,
   CreateInboxSchema,
@@ -469,3 +471,44 @@ export {
   updatePortal,
 } from "./services/portals.js";
 export type { ApiArticle, ApiCategory, ApiPortal, PublicPortal } from "./services/portals.js";
+export {
+  NOTIFICATION_TYPES,
+  NotificationSettingsSchema,
+  NotificationsQuerySchema,
+  PresenceHeartbeatSchema,
+  NotificationSnoozeBodySchema,
+  CreateCustomFilterSchema,
+  UpdateCustomFilterSchema,
+} from "./schemas/notifications.js";
+export type {
+  CreateCustomFilterInput,
+  NotificationSettingsInput,
+  NotificationTypeName,
+  NotificationsQuery,
+  UpdateCustomFilterInput,
+} from "./schemas/notifications.js";
+export {
+  NOTIFICATION_TYPE_TO_INT,
+  createCustomFilter,
+  deleteCustomFilter,
+  extractMentionTokens,
+  getNotificationSettings,
+  listCustomFilters,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  markNotificationUnread,
+  notify,
+  processMentions,
+  registerNotificationEmitters,
+  snoozeNotification,
+  updateCustomFilter,
+  updateNotificationSettings,
+} from "./services/notifications.js";
+export type {
+  ApiCustomFilter,
+  ApiNotification,
+  ApiNotificationSettings,
+} from "./services/notifications.js";
+export { unifiedSearch } from "./services/search.js";
+export type { SearchHit, SearchResults } from "./services/search.js";

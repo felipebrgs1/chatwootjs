@@ -20,6 +20,7 @@ import {
   registerContactImportJob,
   registerEmailPollerJob,
   registerMacroJob,
+  registerNotificationEmitters,
   registerReportingEmitters,
   registerReportingRollup,
   registerSnoozeJob,
@@ -29,6 +30,7 @@ import {
 
 // Jobs de background (in-process sem REDIS_URL; BullMQ com REDIS_URL).
 registerContactImportJob();
+registerNotificationEmitters();
 registerChannelSendJob();
 registerEmailPollerJob();
 registerSnoozeJob();

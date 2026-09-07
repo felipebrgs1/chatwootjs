@@ -8,8 +8,10 @@ import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import { WootSelectMenu } from "@/components/woot-select-menu";
+import { subscribeCableEvents } from "@/hooks/useCable";
 import { ApiError, apiFetch } from "@/lib/auth";
 import type { ConversationDetail } from "@/lib/conversations";
+import { getPresence } from "@/lib/notifications";
 import { assignConversation, setLabels, setPriority } from "@/lib/conversations";
 import {
   executeMacro,
@@ -457,6 +459,28 @@ function ParticipantsEditor({
 }) {
   const [adding, setAdding] = useState(false);
   const [agents, setAgents] = useState<Array<{ id: number; name: string }> | null>(null);
+  // M11: quem está online (pontinho verde) — snapshot + `presence.update`.
+  const [onlineIds, setOnlineIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    void getPresence(accountId)
+      .then((list) => {
+        if (!cancelled) setOnlineIds(new Set(list.map((p) => p.user_id)));
+      })
+      .catch(() => {});
+    return subscribeCableEvents((event) => {
+      if (event.event !== "presence.update") return;
+      const data = event.data as { user_id?: number; status?: string };
+      if (typeof data.user_id !== "number") return;
+      setOnlineIds((prev) => {
+        const next = new Set(prev);
+        if (data.status === "offline") next.delete(data.user_id as number);
+        else next.add(data.user_id as number);
+        return next;
+      });
+    });
+  }, [accountId]);
 
   useEffect(() => {
     if (adding && agents === null) {
@@ -491,7 +515,15 @@ function ParticipantsEditor({
       <ul className="flex flex-col gap-1">
         {conversation.participants.map((p) => (
           <li key={p.id} className="flex items-center gap-2 text-xs">
-            <WootAvatar name={p.name} size="sm" />
+            <span className="relative shrink-0">
+              <WootAvatar name={p.name} size="sm" />
+              {onlineIds.has(p.id) && (
+                <span
+                  title="Online agora"
+                  className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background bg-green-500"
+                />
+              )}
+            </span>
             <span className="flex-1 truncate">{p.name}</span>
             <button
               type="button"

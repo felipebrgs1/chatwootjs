@@ -184,6 +184,12 @@ export async function sendAgentMessage(
       .then((m) => m.dispatchChannelSend(accountId, conv.id, row.id))
       .catch((err) => console.error("[channel:send] dispatch falhou", err));
   }
+  // M11: `@nome` menciona agentes (notificação realtime, menos o autor).
+  if (input.content) {
+    void import("./notifications.js")
+      .then((m) => m.processMentions(accountId, conv.id, row.id, auth.userId, input.content ?? ""))
+      .catch((err) => console.error("[mentions]", err));
+  }
   publish(
     accountId,
     "conversation.updated",

@@ -1,11 +1,21 @@
-import { ArrowRightToLine, Inbox, ListFilter, MessageSquare, Repeat, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  ArrowRightToLine,
+  Bookmark,
+  Inbox,
+  ListFilter,
+  MessageSquare,
+  Plus,
+  Repeat,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { WootAvatar } from "@chatwootjs/ui/components/woot-avatar";
 import { cn } from "@chatwootjs/ui/lib/utils";
 
 import type { ConversationItem } from "@/lib/conversations";
+import type { CustomFilter } from "@/lib/notifications";
 import { WootSelectMenu } from "@/components/woot-select-menu";
 
 const STATUS_BADGES = [
@@ -66,6 +76,12 @@ export function ConversationList({
   onSort,
   onClearFilters,
   accountLabels,
+  views,
+  activeViewId,
+  onSelectView,
+  onSaveView,
+  onDeleteView,
+  headerActions,
 }: {
   items: ConversationItem[] | null;
   selectedId: number | null;
@@ -81,6 +97,12 @@ export function ConversationList({
   onSort: (sort: SortChip) => void;
   onClearFilters: () => void;
   accountLabels: Array<{ id: number; title: string; color: string }>;
+  views: CustomFilter[];
+  activeViewId: number | null;
+  onSelectView: (id: number | null) => void;
+  onSaveView: (name: string) => void;
+  onDeleteView: (id: number) => void;
+  headerActions?: ReactNode;
 }) {
   const statusLabel = STATUS_BADGES.find((s) => s.value === status)?.label ?? "Abertas";
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -112,6 +134,7 @@ export function ConversationList({
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {headerActions}
           {hasFilters ? (
             <button
               type="button"
@@ -198,6 +221,16 @@ export function ConversationList({
         ))}
       </nav>
 
+      {/* Views salvas (M11): chips + salvar a partir dos filtros atuais */}
+      <ViewsBar
+        views={views}
+        activeViewId={activeViewId}
+        hasFilters={hasFilters}
+        onSelectView={onSelectView}
+        onSaveView={onSaveView}
+        onDeleteView={onDeleteView}
+      />
+
       {/* Cards */}
       <ul className="min-h-0 flex-1 list-none overflow-y-auto">
         {items === null && <li className="p-4 text-sm text-woot-slate-11">Carregando...</li>}
@@ -215,6 +248,105 @@ export function ConversationList({
         ))}
       </ul>
     </section>
+  );
+}
+
+function ViewsBar({
+  views,
+  activeViewId,
+  hasFilters,
+  onSelectView,
+  onSaveView,
+  onDeleteView,
+}: {
+  views: CustomFilter[];
+  activeViewId: number | null;
+  hasFilters: boolean;
+  onSelectView: (id: number | null) => void;
+  onSaveView: (name: string) => void;
+  onDeleteView: (id: number) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState("");
+  if (views.length === 0 && !hasFilters) return null;
+  return (
+    <div className="border-b border-border/60 px-3 py-1.5">
+      <div className="flex items-center gap-1 overflow-x-auto">
+        <Bookmark className="size-3.5 shrink-0 text-woot-slate-10" />
+        <button
+          type="button"
+          onClick={() => onSelectView(null)}
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-xs",
+            activeViewId === null
+              ? "bg-woot-nav-active-bg font-medium text-woot-blue"
+              : "text-woot-slate-11 hover:bg-muted",
+          )}
+        >
+          Tudo
+        </button>
+        {views.map((v) => (
+          <span
+            key={v.id}
+            className={cn(
+              "flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-xs",
+              activeViewId === v.id
+                ? "bg-woot-nav-active-bg font-medium text-woot-blue"
+                : "text-woot-slate-11 hover:bg-muted",
+            )}
+          >
+            <button type="button" onClick={() => onSelectView(v.id)} className="px-1">
+              {v.name}
+            </button>
+            <button
+              type="button"
+              title={`Excluir view ${v.name}`}
+              onClick={() => onDeleteView(v.id)}
+              className="grid size-4 place-content-center rounded-full hover:bg-destructive/10 hover:text-destructive"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {hasFilters && !saving && (
+          <button
+            type="button"
+            title="Salvar filtros atuais como view"
+            onClick={() => setSaving(true)}
+            className="flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-xs text-woot-slate-11 hover:bg-muted"
+          >
+            <Plus className="size-3" /> Salvar
+          </button>
+        )}
+      </div>
+      {saving && (
+        <form
+          className="mt-1.5 flex gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) {
+              onSaveView(name.trim());
+              setName("");
+              setSaving(false);
+            }
+          }}
+        >
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nome da view…"
+            autoFocus
+            className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none focus:border-woot-blue"
+          />
+          <button
+            type="submit"
+            className="h-7 shrink-0 rounded-md bg-woot-blue px-2.5 text-xs font-medium text-white"
+          >
+            Salvar
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 

@@ -61,6 +61,14 @@ export function useCable(accountId: number | null, onEvent: (event: CableEvent) 
         }
         if (payload.message?.event) {
           handler.current(payload.message);
+          // Ouvintes sem socket próprio (sino, presença): mesmo evento.
+          for (const listener of cableListeners) {
+            try {
+              listener(payload.message);
+            } catch {
+              /* ouvinte não pode quebrar o socket */
+            }
+          }
         }
       };
       ws.onclose = () => {
@@ -86,6 +94,34 @@ export function useCable(accountId: number | null, onEvent: (event: CableEvent) 
       ws?.close();
     };
   }, [accountId]);
+}
+
+type CableListener = (event: CableEvent) => void;
+
+const cableListeners = new Set<CableListener>();
+
+/**
+ * Assina eventos do cable sem abrir outro socket (sino, presença).
+ * Os eventos chegam via qualquer `useCable` ativo na página.
+ */
+export function subscribeCableEvents(listener: CableListener): () => void {
+  cableListeners.add(listener);
+  return () => {
+    cableListeners.delete(listener);
+  };
+}
+
+/** Heartbeat de presença (o servidor publica `presence.update`). */
+export function sendPresence(accountId: number, status: "online" | "busy" | "offline"): void {
+  const socket = activeSocket;
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  socket.send(
+    JSON.stringify({
+      command: "message",
+      identifier: roomIdentifier(accountId),
+      data: JSON.stringify({ action: "presence", account_id: accountId, status }),
+    }),
+  );
 }
 
 /** Envia typing.on/off para a sala (rebroadcast pelo servidor). */

@@ -18,6 +18,8 @@ import profile from "./profile";
 import reports from "./reports";
 import teams from "./teams";
 import webhooks from "./webhooks";
+import notifications from "./notifications";
+import { customFilters, notificationSettings, presence, search } from "./engagement";
 
 const v1 = new Hono();
 
@@ -38,6 +40,11 @@ v1.route("/accounts/:account_id/reports", reports);
 v1.route("/accounts/:account_id/portals", portals);
 v1.route("/accounts/:account_id/webhooks", webhooks);
 v1.route("/accounts/:account_id/custom_attribute_definitions", customAttributes);
+v1.route("/notifications", notifications);
+v1.route("/accounts/:account_id/notification_settings", notificationSettings);
+v1.route("/accounts/:account_id/custom_filters", customFilters);
+v1.route("/accounts/:account_id/search", search);
+v1.route("/accounts/:account_id/presence", presence);
 v1.route("/", accounts);
 
 export default v1;

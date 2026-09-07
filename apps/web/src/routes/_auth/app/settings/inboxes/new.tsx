@@ -453,6 +453,26 @@ function NewInbox() {
       <Input id={id} {...reg(id)} {...props} />
     </div>
   );
+  const selectField = (
+    id: keyof FormValues,
+    label: string,
+    options: Array<{ value: string; label: string }>,
+  ) => (
+    <div className="grid gap-1.5" key={id}>
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        {...reg(id)}
+        className="h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-1 text-xs text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} className="bg-background text-foreground">
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-2">
@@ -580,7 +600,12 @@ function NewInbox() {
                 {channel.kind === "whatsapp" && (
                   <>
                     {field("phone_number", "Número (ex.: 5511999990000)")}
-                    {field("provider", "Provider (default, evolution, twilio ou 360dialog)")}
+                    {selectField("provider", "Provedor da API", [
+                      { value: "default", label: "WhatsApp Cloud (Meta)" },
+                      { value: "evolution", label: "Evolution API" },
+                      { value: "twilio", label: "Twilio" },
+                      { value: "360dialog", label: "360Dialog" },
+                    ])}
                     {providerValue === "evolution" ? (
                       <>
                         {field("evolution_base_url", "Evolution base URL (ex.: https://evo:8080)")}
@@ -630,7 +655,10 @@ function NewInbox() {
                 {channel.kind === "sms" && (
                   <>
                     {field("phone_number", "Número (ex.: +5511999990000)")}
-                    {field("provider", "Provider (twilio ou bandwidth)")}
+                    {selectField("provider", "Provedor da API", [
+                      { value: "twilio", label: "Twilio" },
+                      { value: "bandwidth", label: "Bandwidth" },
+                    ])}
                     {providerValue === "bandwidth" && (
                       <>
                         {field("bandwidth_account_id", "Bandwidth Account ID")}

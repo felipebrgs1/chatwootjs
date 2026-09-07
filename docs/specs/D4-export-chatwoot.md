@@ -14,7 +14,7 @@ com zero pendências e sobe lendo os dados. É o espelho de D3.
 
 ## 3. Tarefa
 
-1. Criar `scripts/db-export-chatwoot.sh` (ou `.mjs`) que, a partir de
+1. Criar `scripts/db-export-chatwoot.mjs` (ou `.mjs`) que, a partir de
    `DATABASE_URL`, gera `./tmp/chatwootjs-compat.dump` (+ variante `.sql`)
    contendo schema+dados **restauráveis pelo Rails**:
    - exclui ou isola o que está em `drift-permitido.md` como "nosso e fora do
@@ -28,18 +28,18 @@ com zero pendências e sobe lendo os dados. É o espelho de D3.
 3. Teste de ida-e-volta (round-trip): fixture D3 → nosso banco → export D4 →
    banco "rails-like" vazio → diff de `count(*)` por tabela do núcleo e
    amostragem de linhas (`EXCEPT` nos dois sentidos deve dar vazio nas tabelas
-   de domínio). Script: `scripts/db-roundtrip-check.sh`.
+   de domínio). Script: `scripts/db-roundtrip-check.mjs`.
 4. Se o Rails reclamar de algo nosso (tipo, default, índice com nome diferente),
    o fix é em DDL (voltar para D2), não em gambiarra no export.
 
 ## 4. Aceite
 
-- [ ] `bun scripts/db-export-chatwoot.sh` gera dump que restaura com
+- [ ] `bun scripts/db-export-chatwoot.mjs` gera dump que restaura com
       `psql`/`pg_restore` sem erro num Postgres vazio.
 - [ ] Sobre esse restore, o `db:migrate` do Chatwoot pinado sai com
       **zero migrations pendentes** (ou, se o Rails criar `schema_migrations`
       próprias, documentar por que elas não contam como divergência).
-- [ ] `bun scripts/db-roundtrip-check.sh` passa: counts iguais e `EXCEPT`
+- [ ] `bun scripts/db-roundtrip-check.mjs` passa: counts iguais e `EXCEPT`
       vazio nas tabelas do núcleo nos dois sentidos.
 
 ## 5. Done

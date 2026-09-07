@@ -14,7 +14,7 @@ Chatwoot original no pino D0, restaurar no nosso banco e operar sobre esses dado
 
 ## 3. Tarefa
 
-1. Criar `scripts/db-import-chatwoot.sh` (ou `.mjs`) que, dado um arquivo de dump
+1. Criar `scripts/db-import-chatwoot.mjs` (ou `.mjs`) que, dado um arquivo de dump
    (variável `CHATWOOT_DUMP`, default `./tmp/chatwoot.dump`) e `DATABASE_URL`:
    - valida pré-condições (banco nosso migrado até D2, Postgres mesma major);
    - restaura schema+dados (`pg_restore`/`psql`) com ordem que respeite FKs
@@ -35,7 +35,7 @@ Chatwoot original no pino D0, restaurar no nosso banco e operar sobre esses dado
 
 ## 4. Aceite
 
-- [ ] `CHATWOOT_DUMP=./tmp/chatwoot.dump bun scripts/db-import-chatwoot.sh`
+- [ ] `CHATWOOT_DUMP=./tmp/chatwoot.dump bun scripts/db-import-chatwoot.mjs`
       restaura sem violação de FK/unique/not-null e ajusta sequências
       (inserir nova linha após import não colide ID).
 - [ ] Com dados importados: `bun run dev` sobe; login funciona para um usuário

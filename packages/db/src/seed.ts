@@ -35,6 +35,17 @@ const PASSWORD = "password123";
  * Idempotente (ON CONFLICT DO NOTHING) — rode quantas vezes quiser.
  */
 async function seed(): Promise<void> {
+  // D3: após um import do Chatwoot o banco já tem dados — seed pula sozinho
+  // (SEED_FORCE=1 força a criação da conta Demo mesmo assim).
+  if (process.env.SEED_FORCE !== "1") {
+    const anyAccount = await db.query.accounts.findFirst();
+    if (anyAccount && anyAccount.name !== "Demo") {
+      console.log(
+        `seed: banco já contém dados (conta "${anyAccount.name}") — provavelmente import D3; pulando. SEED_FORCE=1 para forçar.`,
+      );
+      return;
+    }
+  }
   const existing = await db.query.accounts.findFirst({
     where: (a, { eq }) => eq(a.name, "Demo"),
   });

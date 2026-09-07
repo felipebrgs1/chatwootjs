@@ -1,0 +1,50 @@
+# D5 — conformidade de dump (trilha D).
+# Roda em todo PR e em push de tags (não roda em push no main).
+# Garante: DDL idêntico ao schema.rb do pino (D2), exceções de drift
+# declaradas (drift-lint) e ida-e-volta de dump verde (D3+D4: migrate do
+# zero + import da fixture + round-trip).
+# Alvo: < 10 min. Regra do repo: sem este workflow verde, nenhum merge que
+# toque packages/db, scripts de dump ou o pino do Chatwoot.
+name: dump-conformance
+
+on:
+  pull_request:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      - run: bun install --frozen-lockfile
+
+      # D2: paridade DDL estática (falha em divergência não declarada em
+      # docs/specs/drift-permitido.md).
+      - name: schema-diff (DDL x schema.rb do pino)
+        run: bun scripts/schema-diff.mjs
+
+      # D5 item 2: toda exceção precisa de Motivo/Impacto/Plano/Expira.
+      - name: drift-lint (política de exceções)
+        run: bun scripts/drift-lint.mjs
+
+      # Postgres do pino (extensão `vector` exige pgvector, igual ao compose).
+      - name: subir postgres
+        run: docker compose up --wait postgres
+
+      # D3+D4: migrate do zero + import da fixture mini + export +
+      # comparação nos dois sentidos + probe de sequência.
+      # Falha em erro de restore, EXCEPT não-vazio ou sequência quebrada.
+      - name: roundtrip (fixture -> export -> compara)
+        run: bun scripts/db-roundtrip-check.mjs
+
+      - name: derrubar postgres
+        if: always()
+        run: docker compose down -v

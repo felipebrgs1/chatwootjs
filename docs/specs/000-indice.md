@@ -23,7 +23,7 @@ quando o aceite da spec estiver cumprido (comandos da spec passando em CI/local)
 | D2     | `D2-colunas-tipos.md`     | Paridade coluna-a-coluna: tipos, defaults, null, índices, FKs | [x] done | [x] done |
 | D3     | `D3-import-chatwoot.md`   | Import: dump do Chatwoot original → nosso banco               | [x] done | [x] done |
 | D4     | `D4-export-chatwoot.md`   | Export: nosso banco → dump que o Rails aceita                 | [x] done | [x] done |
-| D5     | `D5-conformidade.md`      | CI anti-drift + política de upgrade do Chatwoot               | [x] done | [ ] todo |
+| D5     | `D5-conformidade.md`      | CI anti-drift + política de upgrade do Chatwoot               | [x] done | [x] done |
 
 ## Ordem de execução
 

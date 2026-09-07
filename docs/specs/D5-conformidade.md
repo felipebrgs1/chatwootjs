@@ -15,7 +15,7 @@ pino do Chatwoot vira procedimento, não aventura.
 
 ## 3. Tarefa
 
-1. **CI anti-drift:** workflow (ou job no CI existente) que em todo PR roda:
+1. **CI anti-drift:** workflow (ou job no CI existente) que em todo PR e em push de tags roda (push no `main` não dispara — decisão explícita):
    - `bun scripts/schema-diff.mjs` (falha em divergência não declarada);
    - `db:migrate` do zero + import da fixture mini (D3) + round-trip (D4)
      contra Postgres de serviço — falha em qualquer erro de restore,

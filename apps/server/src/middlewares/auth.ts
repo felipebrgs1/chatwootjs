@@ -15,6 +15,12 @@ export interface AppEnv {
   };
 }
 
+export interface SuperAdminEnv {
+  Variables: {
+    superAdmin: { id: number; email: string };
+  };
+}
+
 function extractToken(c: Context): string {
   // Authorization: Bearer <jwt> (novo) ou access-token: <jwt> (compat Chatwoot).
   const header = c.req.header("Authorization");
@@ -32,6 +38,16 @@ async function userIdFromToken(c: Context): Promise<number> {
   } catch {
     throw new UnauthorizedError("Invalid or expired token");
   }
+}
+
+export async function superAdmin(c: Context, next: Next): Promise<Response | void> {
+  const { requireSuperAdmin } = await import("@chatwootjs/core");
+  try {
+    c.set("superAdmin", await requireSuperAdmin(extractToken(c)));
+  } catch {
+    throw new UnauthorizedError("Invalid or expired token");
+  }
+  await next();
 }
 
 /** Só valida o JWT (rotas sem :account_id, ex.: /profile). */

@@ -10,6 +10,7 @@ import auth from "./routes/auth";
 import hc from "./routes/hc";
 import publicWidget from "./routes/public";
 import channelWebhooks from "./routes/webhooks";
+import superAdmin from "./routes/super-admin";
 import v1 from "./routes/v1/index";
 import {
   initJobs,
@@ -19,6 +20,7 @@ import {
   registerChannelSendJob,
   registerContactImportJob,
   registerEmailPollerJob,
+  registerAgentBotForwarder,
   registerMacroJob,
   registerNotificationEmitters,
   registerReportingEmitters,
@@ -31,6 +33,7 @@ import {
 // Jobs de background (in-process sem REDIS_URL; BullMQ com REDIS_URL).
 registerContactImportJob();
 registerNotificationEmitters();
+registerAgentBotForwarder();
 registerChannelSendJob();
 registerEmailPollerJob();
 registerSnoozeJob();
@@ -68,6 +71,7 @@ app.get("/health", (c) => {
 });
 
 app.route("/auth", auth);
+app.route("/super_admin", superAdmin);
 app.route("/webhooks", channelWebhooks);
 app.route("/api/v1", v1);
 app.route("/hc/api", hc);

@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { jobs } from "../jobs/index.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 import { WEBHOOK_EVENTS } from "../schemas/webhooks.js";
 
 // Espelha webhooks_controller do Rails. Entrega via job `webhook.deliver`
@@ -71,6 +72,7 @@ export async function createWebhook(
       })
       .returning();
     if (!row) throw new UnprocessableError("Could not create webhook");
+    void logAudit(accountId, auth.userId, "create", "Webhook", row.id, {});
     return toApi(row);
   } catch (err) {
     if (err instanceof UnprocessableError) throw err;
@@ -100,6 +102,7 @@ export async function updateWebhook(
       .where(eq(webhooks.id, row.id))
       .returning();
     if (!updated) throw new NotFoundError("Webhook not found");
+    void logAudit(accountId, auth.userId, "update", "Webhook", row.id, {});
     return toApi(updated);
   } catch (err) {
     if (err instanceof NotFoundError || err instanceof UnprocessableError) throw err;
@@ -111,6 +114,7 @@ export async function deleteWebhook(accountId: number, auth: AuthCtx, id: number
   requireAdmin(auth);
   const row = await findWebhook(accountId, id);
   await db.delete(webhooks).where(eq(webhooks.id, row.id));
+  void logAudit(accountId, auth.userId, "destroy", "Webhook", row.id, {});
 }
 
 /** Payload no formato do Rails: `{ event, data, account_id, created_at }`. */

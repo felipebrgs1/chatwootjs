@@ -271,6 +271,7 @@ export function AppSidebar() {
         { label: "Macros", to: "/app/settings/macros", icon: ToyBrick },
         { label: "Respostas prontas", to: "/app/settings/canned", icon: MessageSquareQuote },
         { label: "Webhooks", to: "/app/settings/webhooks", icon: Webhook },
+        { label: "Auditoria", to: "/app/settings/audit-logs", icon: Clock },
       ],
     },
   ];

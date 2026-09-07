@@ -184,7 +184,8 @@ export interface ApiAccount {
   id: number;
   name: string;
   locale: string;
-  role: Role;
+  role?: Role;
+  feature_flags?: Record<string, unknown>;
 }
 
 export async function listMyAccounts(userId: number): Promise<ApiAccount[]> {
@@ -208,20 +209,23 @@ export async function listMyAccounts(userId: number): Promise<ApiAccount[]> {
   return result;
 }
 
-export async function getAccount(
-  accountId: number,
-): Promise<{ id: number; name: string; locale: string }> {
+export async function getAccount(accountId: number): Promise<ApiAccount> {
   const account = await db.query.accounts.findFirst({
     where: (a, { eq: equals }) => equals(a.id, accountId),
   });
   if (!account) throw new NotFoundError("Account not found");
-  return { id: account.id, name: account.name, locale: account.locale };
+  return {
+    id: account.id,
+    name: account.name,
+    locale: account.locale,
+    feature_flags: (account.featureFlags ?? {}) as Record<string, unknown>,
+  };
 }
 
 export async function updateAccount(
   auth: AuthCtx,
   data: { name?: string; locale?: string },
-): Promise<{ id: number; name: string; locale: string }> {
+): Promise<ApiAccount> {
   const { requireAdmin } = await import("../policies/index.js");
   requireAdmin(auth);
   const patch: Partial<{ name: string; locale: string }> = {};

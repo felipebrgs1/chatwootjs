@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 
 // Espelha teams_controller + team_members do Rails.
 
@@ -109,6 +110,7 @@ export async function createTeam(
       })
       .returning();
     if (!row) throw new UnprocessableError("Could not create team");
+    void logAudit(auth.accountId, auth.userId, "create", "Team", row.id, {});
     if (input.user_ids?.length) {
       await db
         .insert(teamMembers)
@@ -143,6 +145,7 @@ export async function updateTeam(
   try {
     const [updated] = await db.update(teams).set(patch).where(eq(teams.id, row.id)).returning();
     if (!updated) throw new NotFoundError("Team not found");
+    void logAudit(accountId, auth.userId, "update", "Team", row.id, {});
     return toApiTeam(updated, true);
   } catch (err) {
     if (err instanceof NotFoundError || err instanceof UnprocessableError) throw err;
@@ -160,6 +163,7 @@ export async function deleteTeam(accountId: number, auth: AuthCtx, id: number): 
       .where(eq(conversationsTable.teamId, row.id));
     await tx.delete(teams).where(eq(teams.id, row.id));
   });
+  void logAudit(accountId, auth.userId, "destroy", "Team", row.id, {});
 }
 
 export async function addTeamMembers(

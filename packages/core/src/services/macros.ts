@@ -4,6 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 import { ForbiddenError, NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { jobs } from "../jobs/index.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 import { MACRO_ACTION_NAMES } from "../schemas/macros.js";
 import type { ActionItem } from "../schemas/automation.js";
 import { applyActionItems, validateActionItems } from "./conversation-actions.js";
@@ -75,6 +76,7 @@ export async function createMacro(
     })
     .returning();
   if (!row) throw new UnprocessableError("Could not create macro");
+  void logAudit(accountId, auth.userId, "create", "Macro", row.id, {});
   return toApi(row);
 }
 
@@ -101,6 +103,7 @@ export async function updateMacro(
     .where(eq(macros.id, macro.id))
     .returning();
   if (!updated) throw new NotFoundError("Macro not found");
+  void logAudit(accountId, auth.userId, "update", "Macro", macro.id, {});
   return toApi(updated);
 }
 
@@ -108,6 +111,7 @@ export async function deleteMacro(accountId: number, auth: AuthCtx, id: number):
   const macro = await findMacro(accountId, id);
   assertCanUse(macro, auth);
   await db.delete(macros).where(eq(macros.id, macro.id));
+  void logAudit(accountId, auth.userId, "destroy", "Macro", macro.id, {});
 }
 
 /**

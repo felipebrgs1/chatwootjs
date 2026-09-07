@@ -13,6 +13,7 @@ import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql } from "driz
 
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { publish } from "../realtime/index.js";
+import { logAudit } from "./audit.js";
 import type { AuthCtx } from "../policies/index.js";
 import {
   PRIORITY_FROM_INT,
@@ -538,6 +539,7 @@ export async function toggleConversationStatus(
 
   const fresh = await findConversation(accountId, row.id);
   publish(accountId, "conversation.updated", await toApiConversationItem(fresh));
+  void logAudit(accountId, auth.userId, "update", "Conversation", row.id, { status });
   return toApiConversationDetail(fresh);
 }
 
@@ -587,6 +589,9 @@ export async function assignConversation(
       actorName: name,
     });
   }
+  void logAudit(accountId, auth.userId, "update", "Conversation", row.id, {
+    assignee_id: assignee?.id ?? null,
+  });
   return toApiConversationDetail(fresh);
 }
 
@@ -603,6 +608,7 @@ export async function setConversationTeam(
     .where(eq(conversations.id, row.id));
   const fresh = await findConversation(accountId, row.id);
   publish(accountId, "conversation.updated", await toApiConversationItem(fresh));
+  void logAudit(accountId, auth.userId, "update", "Conversation", row.id, { team_id: teamId });
   return toApiConversationDetail(fresh);
 }
 
@@ -621,6 +627,7 @@ export async function setConversationPriority(
     .where(eq(conversations.id, row.id));
   const fresh = await findConversation(accountId, row.id);
   publish(accountId, "conversation.updated", await toApiConversationItem(fresh));
+  void logAudit(accountId, auth.userId, "update", "Conversation", row.id, { priority });
   return toApiConversationDetail(fresh);
 }
 
@@ -671,6 +678,7 @@ export async function setConversationLabels(
 
   const fresh = await findConversation(accountId, row.id);
   publish(accountId, "conversation.updated", await toApiConversationItem(fresh));
+  void logAudit(accountId, auth.userId, "update", "Conversation", row.id, { labels: normalized });
   return normalized;
 }
 

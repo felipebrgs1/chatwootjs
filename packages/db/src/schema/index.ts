@@ -17,3 +17,4 @@ export * from "./reporting";
 export * from "./portals";
 export * from "./messages";
 export * from "./notifications";
+export * from "./platform";

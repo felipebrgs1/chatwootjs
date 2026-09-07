@@ -19,6 +19,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 import type {
   CreateInboxInput,
   InboxMembersBody,
@@ -455,6 +456,7 @@ export async function createInbox(auth: AuthCtx, input: CreateInboxInput): Promi
 
   const inbox = await db.query.inboxes.findFirst({ where: (i) => eq(i.id, inboxId) });
   if (!inbox) throw new UnprocessableError("Could not create inbox");
+  void logAudit(auth.accountId, auth.userId, "create", "Inbox", inbox.id, {});
   return toApiInbox(inbox);
 }
 
@@ -505,6 +507,7 @@ export async function updateInbox(
 
   const fresh = await db.query.inboxes.findFirst({ where: (i) => eq(i.id, inbox.id) });
   if (!fresh) throw new NotFoundError("Inbox not found");
+  void logAudit(auth.accountId, auth.userId, "update", "Inbox", inbox.id, {});
   return toApiInbox(fresh);
 }
 
@@ -522,6 +525,7 @@ export async function deleteInbox(auth: AuthCtx, inboxId: number): Promise<void>
     }
     await tx.delete(inboxes).where(eq(inboxes.id, inbox.id));
   });
+  void logAudit(auth.accountId, auth.userId, "destroy", "Inbox", inbox.id, {});
 }
 
 // ---- Membros ----

@@ -1,124 +1,89 @@
-# chatwootjs
+# ChatwootJS — paridade 1:1 com o Chatwoot OSS (M0–M12 ✅ `v1-parity`)
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Hono, TRPC, and more.
+Recriação do **Chatwoot open-source** (comportamento, API e visual) com stack
+JS moderna: **HonoJS + Drizzle + Zod + React 19 + TanStack Router/Query +
+Tailwind/shadcn + Bun + Turbo + Postgres + Caddy.**
 
-## Features
+Fonte da verdade funcional/visual: `./chatwoot/` (Rails+Vue, só leitura).
+Specs executáveis: `docs/SPEC_CHATWOOTJS.md` + `docs/specs/M0..M12`
+(progresso em `docs/specs/000-indice.md`).
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Hono** - Lightweight, performant server framework
-- **tRPC** - End-to-end type-safe APIs
-- **Bun** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Turborepo** - Optimized monorepo build system
-
-## Getting Started
-
-First, install the dependencies:
+## Demo em 5 minutos
 
 ```bash
 bun install
+cp .env.example .env            # ajuste DATABASE_URL se preciso
+bun run db:start                 # postgres via docker (ou use o seu)
+bun run db:migrate && bun run db:seed
+bun run dev                      # API :3000 + web :3001
 ```
 
-## Database Setup
+Credenciais do seed (senha `password123` para todos):
 
-This project uses PostgreSQL with Drizzle ORM.
+| Quem  | E-mail                 | Papel                            |
+| ----- | ---------------------- | -------------------------------- |
+| Ada   | `admin@demo.test`      | administradora                   |
+| Alan  | `agent@demo.test`      | agente                           |
+| Super | `superadmin@demo.test` | superadmin (`/superadmin/login`) |
 
-1. Make sure you have a PostgreSQL database set up.
-2. Copy `.env.example` to `.env` in the project root and adjust it.
-   It is the single `.env` for both front and back
-   (`DATABASE_URL`, `CORS_ORIGIN`, `VITE_SERVER_URL`).
+Fluxo ponta a ponta: login → `/app/conversations/2` → enviar mensagem →
+resolver → `/app/reports` reflete → `/app/settings/audit-logs` registra.
+E2E automatizado: `bun scripts/e2e.mjs` (13 checks, exige API :3000 + web :3001).
+Screenshots: `bun scripts/shot.mjs` (saída em `shots/`).
 
-3. Apply the schema to your database:
+## Widget embeddável
+
+```html
+<script>
+  window.chatwootSettings = { websiteToken: "SEU_WEBSITE_TOKEN" };
+</script>
+<script src="http://localhost:3000/widget.js" defer></script>
+```
+
+Token em Settings → Inboxes → (inbox Website) → Configuração. Demo:
+`http://localhost:3000/widget-demo?website_token=...`.
+
+## Matriz de canais (M10)
+
+| Canal              | Inbound                              | Outbound                             | Webhook           |
+| ------------------ | ------------------------------------ | ------------------------------------ | ----------------- |
+| Website / API      | widget / REST                        | realtime                             | —                 |
+| Email              | IMAP poller + `POST /webhooks/email` | SMTP da inbox                        | SendGrid/SES      |
+| Telegram           | `POST /webhooks/telegram/:bot_token` | Bot API                              | BotFather         |
+| WhatsApp Meta      | `POST /webhooks/whatsapp`            | Cloud API (+ templates)              | app Meta          |
+| WhatsApp Evolution | `POST /webhooks/evolution`           | sendText/sendMedia                   | `MESSAGES_UPSERT` |
+| Facebook           | `POST /webhooks/facebook`            | Send API                             | app Meta          |
+| Instagram          | `POST /webhooks/instagram`           | Send API                             | app Meta          |
+| Twitter/X          | `POST /webhooks/twitter` (CRC+DM)    | indisponível no MVP (`failed` claro) | Account Activity  |
+| SMS                | `POST /webhooks/sms/twilio`          | Twilio                               | console Twilio    |
+| Line               | `POST /webhooks/line` (HMAC)         | push                                 | console Line      |
+| Voice              | `POST /webhooks/voice?identifier=`   | stub (registra a chamada)            | Twilio Voice      |
+
+Detalhes por canal: `docs/canais/*.md`. Idempotência por `source_id` em todos.
+
+## Módulos
+
+M0 fundação · M1 auth/contas · M2 inboxes · M3 contatos · M4 conversas ·
+M5 widget · M6 automação · M7 campanhas · M8 relatórios · M9 help center ·
+M10 canais externos · M11 notificações/presença/`⌘K`/views ·
+M12 superadmin (`/superadmin`), auditoria (`settings/audit-logs`),
+AgentBots (aba na inbox), Captain/AI stub (`✨` com
+`feature_flags.captain_enabled` + `CAPTAIN_API_KEY`/`OPENAI_API_KEY`).
+
+## Comandos
 
 ```bash
-bun run db:push
+bun run dev            # API :3000 + web :3001
+bun run check-types    # tsc em todos os pacotes
+bun run check          # oxlint + oxfmt
+bun run db:seed        # re-seed idempotente
+bun scripts/e2e.mjs    # e2e (API :3000 + web :3001 no ar)
+bun scripts/shot.mjs   # screenshots (saída em shots/)
 ```
 
-Then, run the development server:
+## Convenções (resumo)
 
-```bash
-bun run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@chatwootjs/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Docker Compose
-
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: bun run docker:build
-- Start: bun run docker:up
-- Logs: bun run docker:logs
-- Stop: bun run docker:down
-
-Environment variables come from the single root `.env` (baked into web builds for public `VITE_*` variables via build args) and overridden in `docker-compose.yml` for container networking.
-
-For more details, see the guide on [Deploying with Docker Compose](https://www.better-t-stack.dev/docs/guides/docker).
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-## Project Structure
-
-```
-chatwootjs/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   └── server/      # Backend API (Hono, TRPC)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Oxlint and Oxfmt
-- `bun run docker:build`: Build the Docker Compose images
-- `bun run docker:up`: Build and start the Docker Compose stack
-- `bun run docker:logs`: Tail logs from the Docker Compose stack
-- `bun run docker:down`: Stop the Docker Compose stack
+- API 1:1 com o Rails: mesmos paths, status e envelopes (`{ data, meta }`).
+- Banco espelha `chatwoot/db/schema.rb` (snake_case); migrations via drizzle-kit.
+- Domínio é Hono REST + `zValidator` (sem tRPC no domínio).
+- `.env` único na raiz (nunca commitar). `chatwoot/` é só leitura.

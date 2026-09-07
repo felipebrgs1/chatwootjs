@@ -3,6 +3,7 @@ export type ErrorCode =
   | "forbidden"
   | "not_found"
   | "unprocessable"
+  | "not_implemented"
   | "service_unavailable"
   | "internal";
 
@@ -11,6 +12,7 @@ const STATUS: Record<ErrorCode, number> = {
   forbidden: 403,
   not_found: 404,
   unprocessable: 422,
+  not_implemented: 501,
   service_unavailable: 503,
   internal: 500,
 };
@@ -56,6 +58,13 @@ export class UnprocessableError extends HttpError {
 export class ServiceUnavailableError extends HttpError {
   constructor(message = "Service unavailable") {
     super("service_unavailable", message);
+  }
+}
+
+/** Recurso desligado/ausente por configuração (ex.: Captain sem flag/chave). */
+export class NotImplementedError extends HttpError {
+  constructor(message = "Not implemented") {
+    super("not_implemented", message);
   }
 }
 

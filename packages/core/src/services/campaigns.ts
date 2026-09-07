@@ -4,6 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { jobs } from "../jobs/index.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 import { publish } from "../realtime/index.js";
 import { toApiConversationItem } from "./conversations.js";
 import { toApiMessage } from "./messages.js";
@@ -193,6 +194,7 @@ export async function createCampaign(
     })
     .returning();
   if (!row) throw new UnprocessableError("Could not create campaign");
+  void logAudit(accountId, auth.userId, "create", "Campaign", row.id, {});
   return toApi(row);
 }
 
@@ -246,6 +248,7 @@ export async function updateCampaign(
     .where(eq(campaigns.id, row.id))
     .returning();
   if (!updated) throw new NotFoundError("Campaign not found");
+  void logAudit(accountId, auth.userId, "update", "Campaign", row.id, {});
   return toApi(updated);
 }
 
@@ -253,6 +256,7 @@ export async function deleteCampaign(accountId: number, auth: AuthCtx, id: numbe
   requireAdmin(auth);
   const row = await findCampaign(accountId, id);
   await db.delete(campaigns).where(eq(campaigns.id, row.id));
+  void logAudit(accountId, auth.userId, "destroy", "Campaign", row.id, {});
 }
 
 // ---- Audiência ----

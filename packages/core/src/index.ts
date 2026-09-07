@@ -4,6 +4,7 @@ export {
   ForbiddenError,
   HttpError,
   NotFoundError,
+  NotImplementedError,
   ServiceUnavailableError,
   toErrorBody,
   UnauthorizedError,
@@ -17,7 +18,9 @@ export {
   jwtSecret,
   opaqueToken,
   signAccessToken,
+  signSuperAccessToken,
   verifyAccessToken,
+  verifySuperAccessToken,
 } from "./lib/tokens.js";
 export { AccountIdParamSchema, IdParamSchema } from "./schemas/ids.js";
 export type { AccountIdParam, IdParam } from "./schemas/ids.js";
@@ -512,3 +515,48 @@ export type {
 } from "./services/notifications.js";
 export { unifiedSearch } from "./services/search.js";
 export type { SearchHit, SearchResults } from "./services/search.js";
+export {
+  AgentBotWebhookSchema,
+  AuditLogsQuerySchema,
+  CaptainAssistSchema,
+  CreateAgentBotSchema,
+  InstallationConfigSchema,
+  SetInboxBotSchema,
+  SuperAdminSignInSchema,
+  UpdateAgentBotSchema,
+} from "./schemas/ops.js";
+export type {
+  AgentBotWebhookInput,
+  CaptainAssistInput,
+  CreateAgentBotInput,
+  SuperAdminSignInInput,
+  UpdateAgentBotInput,
+} from "./schemas/ops.js";
+export { logAudit, listAuditLogs } from "./services/audit.js";
+export type { AuditAction } from "./services/audit.js";
+export {
+  createAgentBot,
+  deleteAgentBot,
+  getInboxAgentBot,
+  listAgentBots,
+  receiveAgentBotWebhook,
+  registerAgentBotForwarder,
+  setInboxAgentBot,
+  updateAgentBot,
+} from "./services/agent-bots.js";
+export type { ApiAgentBot } from "./services/agent-bots.js";
+export { captainAssist, captainEnabledFor } from "./services/captain.js";
+export {
+  deleteAccountCascade,
+  deleteUserEverywhere,
+  listAllAccounts,
+  listAllUsers,
+  listInstallationConfigs,
+  listPlatformApps,
+  listPlatformBanners,
+  requireSuperAdmin,
+  superAdminSignIn,
+  upsertInstallationConfig,
+} from "./services/super-admin.js";
+export { getDataImport, listDataImports } from "./services/data-imports.js";
+export type { ApiDataImport } from "./services/data-imports.js";

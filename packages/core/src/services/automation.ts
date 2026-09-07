@@ -8,6 +8,7 @@ import { and, eq, lte } from "drizzle-orm";
 
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 import {
   AUTOMATION_ACTION_NAMES,
   AUTOMATION_CONDITION_KEYS,
@@ -161,6 +162,7 @@ export async function createAutomationRule(
     })
     .returning();
   if (!row) throw new UnprocessableError("Could not create automation rule");
+  void logAudit(accountId, auth.userId, "create", "AutomationRule", row.id, {});
   return toApi(row);
 }
 
@@ -203,6 +205,7 @@ export async function updateAutomationRule(
     .where(eq(automationRules.id, rule.id))
     .returning();
   if (!updated) throw new NotFoundError("Automation rule not found");
+  void logAudit(accountId, auth.userId, "update", "AutomationRule", rule.id, {});
   // Descarta execuções armadas sob a definição antiga (igual ao Rails).
   await db
     .delete(automationRulePendingExecutions)
@@ -223,6 +226,7 @@ export async function deleteAutomationRule(
   requireAdmin(auth);
   const rule = await findAutomationRule(accountId, id);
   await db.delete(automationRules).where(eq(automationRules.id, rule.id));
+  void logAudit(accountId, auth.userId, "destroy", "AutomationRule", rule.id, {});
 }
 
 /** Duplica a regra (espelha clone do Rails: dup integral). */

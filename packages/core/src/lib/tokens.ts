@@ -40,6 +40,29 @@ export async function verifyAccessToken(token: string): Promise<number> {
   return payload.sub;
 }
 
+export interface SuperAccessClaims {
+  sub: number;
+  type: "super_access";
+}
+
+/** JWT do console `/super_admin` (área separada, expira em 8h). */
+export async function signSuperAccessToken(superAdminId: number): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  return sign(
+    { sub: superAdminId, type: "super_access", iat: now, exp: now + 8 * 3600 },
+    jwtSecret(),
+    "HS256",
+  );
+}
+
+export async function verifySuperAccessToken(token: string): Promise<number> {
+  const payload = await verify(token, jwtSecret(), "HS256");
+  if (payload.type !== "super_access" || typeof payload.sub !== "number") {
+    throw new Error("Invalid super admin token");
+  }
+  return payload.sub;
+}
+
 /** Token opaco (refresh/convite/reset). Retorna o segredo; guarde só o digest. */
 export function opaqueToken(): { token: string; digest: string } {
   const token = randomBytes(32).toString("hex");

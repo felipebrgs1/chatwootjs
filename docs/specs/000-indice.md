@@ -23,7 +23,7 @@ quando o módulo estiver implementado, testado e com o aceite da spec cumprido.
 | M9     | `M9-helpcenter.md`         | Central de ajuda / portais públicos                  | [x] done | [x] done |
 | M10    | `M10-external-channels.md` | WhatsApp, Meta, Telegram, Email, SMS, Line, Voice    | [x] done | [x] done |
 | M11    | `M11-notifications.md`     | Notificações, presença, busca global, filtros salvos | [x] done | [x] done |
-| M12    | `M12-polish.md`            | Superadmin, auditoria, AgentBots, QA 1:1             | [x] done | [ ] todo |
+| M12    | `M12-polish.md`            | Superadmin, auditoria, AgentBots, QA 1:1             | [x] done | [x] done |
 
 ## Ordem de execução
 

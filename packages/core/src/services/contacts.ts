@@ -19,6 +19,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { jobs } from "../jobs/index.js";
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 import { ATTRIBUTE_TYPES } from "../schemas/contacts.js";
 import { STATUS_FROM_INT } from "../schemas/conversations.js";
 import type {
@@ -322,6 +323,7 @@ export async function createContact(auth: AuthCtx, input: CreateContactInput): P
     })
     .returning();
   if (!row) throw new UnprocessableError("Could not create contact");
+  void logAudit(auth.accountId, auth.userId, "create", "Contact", row.id, {});
   return toApiContact(row);
 }
 
@@ -378,6 +380,7 @@ export async function updateContact(
     where: (ct) => eq(ct.id, contactId),
   });
   if (!fresh) throw new NotFoundError("Contact not found");
+  void logAudit(auth.accountId, auth.userId, "update", "Contact", contactId, {});
   return toApiContact(fresh);
 }
 
@@ -387,6 +390,7 @@ export async function deleteContact(auth: AuthCtx, contactId: number): Promise<v
     .where(and(eq(contacts.accountId, auth.accountId), eq(contacts.id, contactId)))
     .returning({ id: contacts.id });
   if (deleted.length === 0) throw new NotFoundError("Contact not found");
+  void logAudit(auth.accountId, auth.userId, "destroy", "Contact", contactId, {});
 }
 
 // ---- Contact inboxes ----
@@ -491,6 +495,7 @@ export async function mergeContacts(
 
   const fresh = await db.query.contacts.findFirst({ where: (ct) => eq(ct.id, baseId) });
   if (!fresh) throw new NotFoundError("Contact not found");
+  void logAudit(auth.accountId, auth.userId, "update", "Contact", baseId, { merged_id: childId });
   return toApiContact(fresh);
 }
 
@@ -594,6 +599,7 @@ export async function createLabel(
   if (!row) {
     throw new UnprocessableError("Title already exists", { title: ["já está em uso"] });
   }
+  void logAudit(auth.accountId, auth.userId, "create", "Label", row.id, { title });
   return toApiLabel(row);
 }
 
@@ -615,6 +621,7 @@ export async function updateLabel(
   await db.update(labels).set(update).where(eq(labels.id, labelId));
   const fresh = await db.query.labels.findFirst({ where: (l) => eq(l.id, labelId) });
   if (!fresh) throw new NotFoundError("Label not found");
+  void logAudit(auth.accountId, auth.userId, "update", "Label", labelId, {});
   return toApiLabel(fresh);
 }
 
@@ -624,6 +631,7 @@ export async function deleteLabel(auth: AuthCtx, labelId: number): Promise<void>
     .where(and(eq(labels.accountId, auth.accountId), eq(labels.id, labelId)))
     .returning({ id: labels.id });
   if (deleted.length === 0) throw new NotFoundError("Label not found");
+  void logAudit(auth.accountId, auth.userId, "destroy", "Label", labelId, {});
 }
 
 // ---- Custom attribute definitions ----

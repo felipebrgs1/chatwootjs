@@ -11,6 +11,7 @@ import {
   Minimize2,
   Quote,
   SendHorizontal,
+  Sparkles,
   Square,
   StickyNote,
 } from "lucide-react";
@@ -108,6 +109,53 @@ export function ReplyBox({
   const [showEmoji, setShowEmoji] = useState(false);
   const [canned, setCanned] = useState<CannedResponse[]>([]);
   const [cannedOpen, setCannedOpen] = useState(false);
+  // M12 (Captain stub): ✨ só aparece com feature_flags.captain_enabled.
+  const [captainOn, setCaptainOn] = useState(false);
+  const [captainOpen, setCaptainOpen] = useState(false);
+  const [captainBusy, setCaptainBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/auth").then(({ apiFetch }) =>
+      apiFetch<{ account: { feature_flags?: Record<string, unknown> } }>(
+        `/api/v1/accounts/${accountId}`,
+      )
+        .then((data) => {
+          if (!cancelled) setCaptainOn(data.account.feature_flags?.captain_enabled === true);
+        })
+        .catch(() => {}),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  async function captainRun(type: "reply_suggest" | "summarize" | "rewrite"): Promise<void> {
+    setCaptainBusy(true);
+    setError(null);
+    try {
+      const { apiFetch } = await import("@/lib/auth");
+      const data = await apiFetch<{ result: string }>(
+        `/api/v1/accounts/${accountId}/captain/assist`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            type,
+            conversation_id: conversationId,
+            content: text || undefined,
+          }),
+        },
+      );
+      setText((prev) =>
+        type === "rewrite" || !prev.trim() ? data.result : `${prev.trim()}\n\n${data.result}`,
+      );
+      setCaptainOpen(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Captain indisponível");
+    } finally {
+      setCaptainBusy(false);
+    }
+  }
   const [expanded, setExpanded] = useState(false);
   const cannedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caretRaf = useRef<number | null>(null);
@@ -353,12 +401,48 @@ export function ReplyBox({
             </button>
           ))}
         </div>
+        {captainOn && (
+          <div className="relative ml-auto">
+            <button
+              type="button"
+              title="Captain AI (sugerir, resumir, reescrever)"
+              aria-label="Captain AI"
+              aria-expanded={captainOpen}
+              onClick={() => setCaptainOpen((v) => !v)}
+              disabled={captainBusy}
+              className="grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
+            >
+              <Sparkles className="size-3.5" />
+            </button>
+            {captainOpen && (
+              <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-lg border bg-background p-1 shadow-lg">
+                {(
+                  [
+                    { id: "reply_suggest", label: "Sugerir resposta" },
+                    { id: "summarize", label: "Resumir conversa" },
+                    { id: "rewrite", label: "Reescrever texto" },
+                  ] as const
+                ).map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    disabled={captainBusy}
+                    onClick={() => void captainRun(a.id)}
+                    className="block w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted"
+                  >
+                    {captainBusy ? "Gerando…" : a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <button
           type="button"
           title={expanded ? "Recolher editor" : "Expandir editor"}
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
-          className="ml-auto grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted"
+          className={`grid size-7 place-content-center rounded-lg text-woot-slate-11 hover:bg-muted ${captainOn ? "" : "ml-auto"}`}
         >
           {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
         </button>

@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
+import { logAudit } from "./audit.js";
 
 // Espelha canned_responses_controller do Rails, incluindo a ordenação
 // `order_by_search` (short_code que começa com a busca primeiro).
@@ -67,6 +68,7 @@ export async function createCannedResponse(
       .values({ accountId, shortCode: input.short_code, content: input.content })
       .returning();
     if (!row) throw new UnprocessableError("Could not create canned response");
+    void logAudit(accountId, auth.userId, "create", "CannedResponse", row.id, {});
     return toApi(row);
   } catch (err) {
     if (err instanceof UnprocessableError) throw err;
@@ -95,6 +97,7 @@ export async function updateCannedResponse(
       .where(eq(cannedResponses.id, row.id))
       .returning();
     if (!updated) throw new NotFoundError("Canned response not found");
+    void logAudit(accountId, auth.userId, "update", "CannedResponse", row.id, {});
     return toApi(updated);
   } catch (err) {
     if (err instanceof NotFoundError) throw err;
@@ -112,4 +115,5 @@ export async function deleteCannedResponse(
   requireAdmin(auth);
   const row = await findCannedResponse(accountId, id);
   await db.delete(cannedResponses).where(eq(cannedResponses.id, row.id));
+  void logAudit(accountId, auth.userId, "destroy", "CannedResponse", row.id, {});
 }

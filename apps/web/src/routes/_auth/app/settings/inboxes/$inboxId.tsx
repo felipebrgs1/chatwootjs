@@ -19,14 +19,23 @@ export const Route = createFileRoute("/_auth/app/settings/inboxes/$inboxId")({
   component: InboxDetail,
 });
 
-type Tab = "settings" | "agents" | "working_hours" | "configuration";
+type Tab = "settings" | "agents" | "working_hours" | "configuration" | "agent_bot";
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "settings", label: "Configurações" },
   { id: "agents", label: "Agentes" },
   { id: "working_hours", label: "Horário comercial" },
   { id: "configuration", label: "Configuração" },
+  { id: "agent_bot", label: "AgentBot" },
 ];
+
+interface AgentBotRow {
+  id: number;
+  name: string | null;
+  description: string | null;
+  outgoing_url: string | null;
+  bot_type: string;
+}
 
 interface ApiInbox {
   id: number;
@@ -341,6 +350,10 @@ function InboxDetail() {
             <CopyButton text={String((inbox.channel as { secret?: string }).secret ?? "")} />
           </section>
         )}
+        {tab === "agent_bot" && (
+          <AgentBotSection accountId={accountId} inboxId={Number(inboxId)} isAdmin={isAdmin} />
+        )}
+
         {tab === "configuration" && inbox?.channel_type === "Channel::Email" && (
           <section className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
             IMAP/SMTP completos chegam no M10.
@@ -511,6 +524,125 @@ function SettingCheckbox({
       />
       {label}
     </label>
+  );
+}
+
+/** M12 — vincula um AgentBot à inbox (responde via outgoing_url). */
+function AgentBotSection({
+  accountId,
+  inboxId,
+  isAdmin,
+}: {
+  accountId: number;
+  inboxId: number;
+  isAdmin: boolean;
+}) {
+  const [bots, setBots] = useState<AgentBotRow[]>([]);
+  const [linkedId, setLinkedId] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [b, linked] = await Promise.all([
+          apiFetch<{ agent_bots: AgentBotRow[] }>(`/api/v1/accounts/${accountId}/agent_bots`),
+          apiFetch<{ agent_bot: AgentBotRow | null }>(
+            `/api/v1/accounts/${accountId}/inboxes/${inboxId}/agent_bot`,
+          ),
+        ]);
+        if (!cancelled) {
+          setBots(b.agent_bots);
+          setLinkedId(linked.agent_bot?.id ?? null);
+        }
+      } catch {
+        /* sem acesso */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, inboxId]);
+
+  async function link(id: number | null): Promise<void> {
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/accounts/${accountId}/inboxes/${inboxId}/agent_bot`, {
+        method: "PUT",
+        body: JSON.stringify({ agent_bot_id: id }),
+      });
+      setLinkedId(id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erro inesperado");
+    }
+  }
+
+  async function create(): Promise<void> {
+    setError(null);
+    try {
+      const data = await apiFetch<{ agent_bot: AgentBotRow }>(
+        `/api/v1/accounts/${accountId}/agent_bots`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name: name.trim(), outgoing_url: url.trim() || undefined }),
+        },
+      );
+      setBots((prev) => [...prev, data.agent_bot]);
+      setName("");
+      setUrl("");
+      await link(data.agent_bot.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erro inesperado");
+    }
+  }
+
+  return (
+    <section className="grid gap-3 rounded-lg border bg-card p-4">
+      <h2 className="text-sm font-medium">Bot da inbox</h2>
+      <p className="text-xs text-muted-foreground">
+        Mensagens recebidas são encaminhadas ao <code>outgoing_url</code> do bot; a resposta volta
+        por <code>POST /agent_bots/:id/webhook</code>.
+      </p>
+      <div className="grid gap-1.5">
+        <Label htmlFor="agent-bot">Bot vinculado</Label>
+        <select
+          id="agent-bot"
+          disabled={!isAdmin}
+          value={linkedId ?? ""}
+          onChange={(e) => void link(e.target.value ? Number(e.target.value) : null)}
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+        >
+          <option value="">Nenhum</option>
+          {bots.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name ?? `#${b.id}`} ({b.bot_type})
+            </option>
+          ))}
+        </select>
+      </div>
+      {isAdmin && (
+        <div className="grid gap-1.5 border-t pt-3">
+          <Label>Novo bot webhook</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do bot" />
+          <Input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://seu-bot/hook"
+          />
+          <Button
+            type="button"
+            disabled={!name.trim()}
+            onClick={() => void create()}
+            className="w-fit"
+          >
+            Criar e vincular
+          </Button>
+        </div>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </section>
   );
 }
 

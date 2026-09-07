@@ -20,6 +20,7 @@ import teams from "./teams";
 import webhooks from "./webhooks";
 import notifications from "./notifications";
 import { customFilters, notificationSettings, presence, search } from "./engagement";
+import { agentBots, auditLogs, captain, dataImports, inboxAgentBot } from "./ops";
 
 const v1 = new Hono();
 
@@ -45,6 +46,11 @@ v1.route("/accounts/:account_id/notification_settings", notificationSettings);
 v1.route("/accounts/:account_id/custom_filters", customFilters);
 v1.route("/accounts/:account_id/search", search);
 v1.route("/accounts/:account_id/presence", presence);
+v1.route("/accounts/:account_id/audit_logs", auditLogs);
+v1.route("/accounts/:account_id/agent_bots", agentBots);
+v1.route("/accounts/:account_id/inboxes/:inbox_id/agent_bot", inboxAgentBot);
+v1.route("/accounts/:account_id/captain", captain);
+v1.route("/accounts/:account_id/data_imports", dataImports);
 v1.route("/", accounts);
 
 export default v1;

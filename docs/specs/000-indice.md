@@ -20,7 +20,7 @@ quando o aceite da spec estiver cumprido (comandos da spec passando em CI/local)
 | ------ | ------------------------- | ------------------------------------------------------------- | -------- | -------- |
 | D0     | `D0-inventario-diff.md`   | Pinar versão, inventário 98 tabelas + harness de diff         | [x] done | [x] done |
 | D1     | `D1-tabelas-faltantes.md` | Criar as ~36 tabelas faltantes (nomes Rails exatos)           | [x] done | [x] done |
-| D2     | `D2-colunas-tipos.md`     | Paridade coluna-a-coluna: tipos, defaults, null, índices, FKs | [x] done | [ ] todo |
+| D2     | `D2-colunas-tipos.md`     | Paridade coluna-a-coluna: tipos, defaults, null, índices, FKs | [x] done | [x] done |
 | D3     | `D3-import-chatwoot.md`   | Import: dump do Chatwoot original → nosso banco               | [x] done | [ ] todo |
 | D4     | `D4-export-chatwoot.md`   | Export: nosso banco → dump que o Rails aceita                 | [x] done | [ ] todo |
 | D5     | `D5-conformidade.md`      | CI anti-drift + política de upgrade do Chatwoot               | [x] done | [ ] todo |

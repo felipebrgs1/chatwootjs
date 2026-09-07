@@ -40,9 +40,16 @@ async function seed(): Promise<void> {
   });
   let accountId = existing?.id;
   if (!accountId) {
+    // Rails: before_create :enable_default_features. Bits gerados de
+    // chatwoot/config/features.yml por packages/core/src/lib/feature-flags.ts
+    // (defaultFeatureFlags()); regenerar ao repinar o Chatwoot.
     const [created] = await db
       .insert(accounts)
-      .values({ name: "Demo" })
+      .values({
+        name: "Demo",
+        featureFlags: 1442282865939709831n,
+        featureFlagsExt1: 4n,
+      })
       .returning({ id: accounts.id });
     accountId = created?.id;
   }
@@ -50,25 +57,25 @@ async function seed(): Promise<void> {
 
   const passwordDigest = await Bun.password.hash(PASSWORD, { algorithm: "bcrypt", cost: 10 });
 
-  const [admin] = await db
-    .insert(users)
-    .values({ name: "Ada Lovelace", email: ADMIN_EMAIL, passwordDigest })
-    .onConflictDoNothing({ target: users.email })
-    .returning({ id: users.id });
-  const adminId =
-    admin?.id ??
-    (await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, ADMIN_EMAIL) }))?.id;
-  if (!adminId) throw new Error("seed: demo admin not found");
+  // Rails não tem índice unique em users.email: idempotência via lookup (sem ON CONFLICT).
+  async function ensureUser(name: string, email: string): Promise<number> {
+    const found = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, email) });
+    if (found) return found.id;
+    const [created] = await db
+      .insert(users)
+      // Rails/Devise: provider=email + uid=email (unique juntos).
+      .values({ name, email, passwordDigest, provider: "email", uid: email })
+      .onConflictDoNothing()
+      .returning({ id: users.id });
+    const id =
+      created?.id ??
+      (await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, email) }))?.id;
+    if (!id) throw new Error(`seed: user ${email} not found`);
+    return id;
+  }
 
-  const [agent] = await db
-    .insert(users)
-    .values({ name: "Alan Turing", email: AGENT_EMAIL, passwordDigest })
-    .onConflictDoNothing({ target: users.email })
-    .returning({ id: users.id });
-  const agentId =
-    agent?.id ??
-    (await db.query.users.findFirst({ where: (u, { eq }) => eq(u.email, AGENT_EMAIL) }))?.id;
-  if (!agentId) throw new Error("seed: demo agent not found");
+  const adminId = await ensureUser("Ada Lovelace", ADMIN_EMAIL);
+  const agentId = await ensureUser("Alan Turing", AGENT_EMAIL);
 
   await db
     .insert(accountUsers)
@@ -279,9 +286,16 @@ async function seed(): Promise<void> {
     where: (c, { eq, and }) => and(eq(c.accountId, accountId), eq(c.title, "Boas-vindas")),
   });
   if (!demoCampaign) {
+    // Rails: campaigns.display_id NOT NULL sem default (sequência por conta).
+    const maxDisplay = await db.query.campaigns.findFirst({
+      where: (c, { eq }) => eq(c.accountId, accountId),
+      orderBy: (c, { desc }) => desc(c.displayId),
+      columns: { displayId: true },
+    });
     await db.insert(campaigns).values({
       accountId,
       inboxId,
+      displayId: (maxDisplay?.displayId ?? 0) + 1,
       title: "Boas-vindas",
       message: "Aproveite 10% off na primeira compra!",
       campaignType: 0,

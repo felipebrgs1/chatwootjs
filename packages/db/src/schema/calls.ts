@@ -1,20 +1,18 @@
 import {
   bigint,
   bigserial,
-  index,
   integer,
   jsonb,
-  pgTable,
   text,
   timestamp,
-  unique,
   varchar,
+  pgTable,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-// D1 — Chamadas de voz/vídeo. Espelha `calls` do `chatwoot/db/schema.rb`.
-// Sem FKs em D1 (D2 alinha).
-
-const ts = (name: string) => timestamp(name, { withTimezone: false });
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
 export const calls = pgTable(
   "calls",
@@ -30,13 +28,17 @@ export const calls = pgTable(
     provider: integer("provider").notNull().default(0),
     direction: integer("direction").notNull(),
     status: varchar("status", { length: 255 }).notNull().default("ringing"),
-    startedAt: ts("started_at"),
+    startedAt: timestamp("started_at"),
     durationSeconds: integer("duration_seconds"),
     endReason: varchar("end_reason", { length: 255 }),
-    meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
+    meta: jsonb("meta").default({}),
     transcript: text("transcript"),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("index_calls_on_account_id_and_contact_id").on(table.accountId, table.contactId),
@@ -46,7 +48,10 @@ export const calls = pgTable(
     ),
     index("index_calls_on_account_id_and_created_at").on(table.accountId, table.createdAt),
     index("index_calls_on_message_id").on(table.messageId),
-    unique("index_calls_on_provider_and_provider_call_id").on(table.provider, table.providerCallId),
+    uniqueIndex("index_calls_on_provider_and_provider_call_id").on(
+      table.provider,
+      table.providerCallId,
+    ),
   ],
 );
 

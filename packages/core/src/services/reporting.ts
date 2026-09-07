@@ -73,11 +73,11 @@ async function recordEvent(input: {
   eventStart?: Date | null;
   eventEnd?: Date | null;
 }): Promise<void> {
+  // Rails reporting_events não tem team_id.
   await db.insert(reportingEvents).values({
     accountId: input.accountId,
     conversationId: input.conversationId ?? null,
     inboxId: input.inboxId ?? null,
-    teamId: input.teamId ?? null,
     userId: input.userId ?? null,
     name: input.name,
     value: input.value ?? null,
@@ -345,14 +345,10 @@ async function breakdown(
       const tagged = await db
         .select({ taggableId: taggings.taggableId })
         .from(taggings)
-        .where(
-          and(
-            eq(taggings.accountId, accountId),
-            eq(taggings.tagId, label.id),
-            eq(taggings.taggableType, "Conversation"),
-          ),
-        );
-      const ids = [...new Set(tagged.map((t) => t.taggableId))];
+        .where(and(eq(taggings.tagId, label.id), eq(taggings.taggableType, "Conversation")));
+      const ids = [
+        ...new Set(tagged.map((t) => t.taggableId).filter((x): x is number => x != null)),
+      ];
       if (ids.length === 0) continue;
       const convs = await db.query.conversations.findMany({
         where: (c) =>

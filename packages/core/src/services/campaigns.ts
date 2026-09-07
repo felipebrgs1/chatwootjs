@@ -63,17 +63,19 @@ async function toApi(row: typeof campaigns.$inferSelect): Promise<ApiCampaign> {
   return {
     id: row.id,
     display_id: row.displayId,
-    title: row.title,
-    message: row.message,
+    title: row.title ?? "",
+    message: row.message ?? "",
     description: row.description,
-    campaign_type: CAMPAIGN_TYPE_FROM_INT[row.campaignType] ?? "ongoing",
-    campaign_status: CAMPAIGN_STATUS_FROM_INT[row.campaignStatus] ?? "active",
-    enabled: row.enabled,
+    campaign_type: CAMPAIGN_TYPE_FROM_INT[row.campaignType ?? 0] ?? "ongoing",
+    campaign_status: CAMPAIGN_STATUS_FROM_INT[row.campaignStatus ?? 0] ?? "active",
+    enabled: row.enabled ?? true,
     inbox_id: row.inboxId,
-    inbox: inbox ? { id: inbox.id, name: inbox.name, channel_type: inbox.channelType } : null,
-    sender: sender ? { id: sender.id, name: sender.name } : null,
-    trigger_rules: row.triggerRules ?? {},
-    audience: row.audience ?? {},
+    inbox: inbox
+      ? { id: inbox.id, name: inbox.name ?? "", channel_type: inbox.channelType ?? null }
+      : null,
+    sender: sender ? { id: sender.id, name: sender.name ?? "" } : null,
+    trigger_rules: (row.triggerRules ?? {}) as Record<string, unknown>,
+    audience: (row.audience ?? {}) as Record<string, unknown>,
     scheduled_at: row.scheduledAt?.toISOString() ?? null,
   };
 }
@@ -273,15 +275,20 @@ export async function audienceContacts(
   limit = 500,
   offset = 0,
 ): Promise<Array<typeof contacts.$inferSelect>> {
-  const wanted = (campaign.audience?.labels ?? []).map((l) => l.toLowerCase());
+  const audience = (campaign.audience ?? {}) as { labels?: unknown };
+  const wanted = ((Array.isArray(audience.labels) ? audience.labels : []) as unknown[]).map((l) =>
+    String(l).toLowerCase(),
+  );
+  const campaignInboxId = campaign.inboxId;
+  if (campaignInboxId == null) return [];
   const cis = await db.query.contactInboxes.findMany({
-    where: (ci) => eq(ci.inboxId, campaign.inboxId),
+    where: (ci) => eq(ci.inboxId, campaignInboxId),
     columns: { contactId: true },
     limit,
     offset,
   });
   if (cis.length === 0) return [];
-  const ids = [...new Set(cis.map((ci) => ci.contactId))];
+  const ids = [...new Set(cis.map((ci) => ci.contactId).filter((x): x is number => x != null))];
   const rows = await db.query.contacts.findMany({
     where: (ct) => and(eq(ct.accountId, accountId), inArray(ct.id, ids)),
   });
@@ -292,7 +299,7 @@ export async function audienceContacts(
     .innerJoin(labels, eq(labels.id, taggings.tagId))
     .where(
       and(
-        eq(taggings.accountId, accountId),
+        eq(labels.accountId, accountId),
         eq(taggings.taggableType, "Contact"),
         eq(taggings.context, "labels"),
         inArray(taggings.taggableId, ids),
@@ -300,6 +307,7 @@ export async function audienceContacts(
     );
   const byContact = new Map<number, Set<string>>();
   for (const t of tagged) {
+    if (t.taggableId == null) continue;
     const set = byContact.get(t.taggableId) ?? new Set<string>();
     if (t.title) set.add(t.title.toLowerCase());
     byContact.set(t.taggableId, set);
@@ -313,7 +321,7 @@ export async function audiencePreview(accountId: number, id: number): Promise<Au
   const all = await audienceContacts(accountId, campaign, 100_000, 0);
   return {
     count: all.length,
-    sample: all.slice(0, 10).map((c) => ({ id: c.id, name: c.name, email: c.email })),
+    sample: all.slice(0, 10).map((c) => ({ id: c.id, name: c.name ?? "", email: c.email })),
   };
 }
 

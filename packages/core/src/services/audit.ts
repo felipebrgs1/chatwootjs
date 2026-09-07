@@ -1,6 +1,7 @@
 /**
- * Trilha de auditoria (tabela `audits`, nome Rails — D1; colunas ainda
- * nossas, D2 alinha com o Rails).
+ * Trilha de auditoria (tabela `audits`, DDL Rails — D2).
+ * Escopo por conta via associated (associated_type='Account',
+ * associated_id=account_id); payload em audited_changes.
  *
  * `logAudit` nunca quebra o fluxo chamador (try/catch interno) e é
  * fire-and-forget (`void`) nas rotas/services. Leitura só para admin.
@@ -23,12 +24,13 @@ export async function logAudit(
 ): Promise<void> {
   try {
     await db.insert(audits).values({
-      accountId,
+      associatedId: accountId,
+      associatedType: "Account",
       userId,
       action,
       auditableType,
       auditableId,
-      changes,
+      auditedChanges: changes,
     });
   } catch (err) {
     console.error("[audit]", err);
@@ -38,7 +40,7 @@ export async function logAudit(
 export interface ApiAuditLog {
   id: number;
   user_id: number | null;
-  action: string;
+  action: string | null;
   auditable_type: string | null;
   auditable_id: number | null;
   changes: Record<string, unknown>;
@@ -51,7 +53,7 @@ export async function listAuditLogs(
   query: AuditLogsQuery,
 ): Promise<{ audit_logs: ApiAuditLog[]; meta: { page: number; total: number } }> {
   requireAdmin(auth);
-  const conditions = [eq(audits.accountId, accountId)];
+  const conditions = [eq(audits.associatedId, accountId), eq(audits.associatedType, "Account")];
   if (query.user_id) conditions.push(eq(audits.userId, query.user_id));
   if (query.auditable_type) conditions.push(eq(audits.auditableType, query.auditable_type));
   if (query.action) conditions.push(eq(audits.action, query.action));
@@ -72,8 +74,8 @@ export async function listAuditLogs(
       action: r.action,
       auditable_type: r.auditableType,
       auditable_id: r.auditableId,
-      changes: r.changes ?? {},
-      created_at: r.createdAt.toISOString(),
+      changes: (r.auditedChanges ?? {}) as Record<string, unknown>,
+      created_at: r.createdAt?.toISOString() ?? "",
     })),
     meta: { page: query.page, total: totalRows[0]?.total ?? 0 },
   };

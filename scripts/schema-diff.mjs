@@ -98,6 +98,8 @@ function parseDrizzleFile(src) {
           ? chunk.slice(COL_RE.lastIndex)
           : chunk.slice(COL_RE.lastIndex, COL_RE.lastIndex + cut);
       const tail = cm[3] + chain;
+      // $defaultFn é client-side (runtime) — NÃO conta como default DDL.
+      const noFn = chain.replace(/\.\$defaultFn\([^)]*\)/g, "");
       cols.push({
         name: cm[2],
         builder: cm[1],
@@ -108,10 +110,15 @@ function parseDrizzleFile(src) {
           : /withTimezone:\s*false/.test(tail)
             ? false
             : null,
-        hasDefault: /\.default\(|\.defaultNow\(|\.\$default/.test(chain),
+        hasDefault: /\.default\(|\.defaultNow\(/.test(noFn),
+        // .unique() em coluna sem unique("nome") explícito: o nome gerado
+        // nunca bate com o Rails — D2 exige nomear todos.
+        unnamedUnique: /\.unique\(\)/.test(chain),
       });
     }
-    const explicitIdx = [...chunk.matchAll(/(?:unique|index)\(\s*"([^"]+)"/g)].map((m) => m[1]);
+    const explicitIdx = [...chunk.matchAll(/\b(?:uniqueIndex|unique|index)\(\s*"([^"]+)"/g)].map(
+      (m) => m[1],
+    );
     const pkCol = cols.find((c) => c.pk);
     tables.set(tname, { cols, indexes: explicitIdx, pkBuilder: pkCol ? pkCol.builder : null });
   }
@@ -149,7 +156,6 @@ const extraTables = [];
 const colDiffs = []; // {table, missing[], extra[], typeMismatch[], nullMismatch[]}
 const pkDiffs = [];
 const indexDiffs = [];
-const defaultNotes = [];
 
 for (const t of [...rb.keys()].sort()) {
   if (!ours.has(t)) {
@@ -172,6 +178,7 @@ for (const t of [...rb.keys()].sort()) {
   const extra = [...oCols.keys()].filter((c) => !rCols.has(c) && !allowed(allow, t, c));
   const typeMismatch = [];
   const nullMismatch = [];
+  const defaultMismatch = [];
   for (const [c, rc] of rCols) {
     if (!oCols.has(c) || allowed(allow, t, c)) continue;
     const oc = oCols.get(c);
@@ -190,10 +197,10 @@ for (const t of [...rb.keys()].sort()) {
       typeMismatch.push(`${c}: rails=${rc.type} vs nosso=${oc.builder}`);
       continue;
     }
-    if (rc.type === "datetime" && oc.tz !== false) {
-      typeMismatch.push(
-        `${c}: rails=datetime (sem tz) vs nosso=timestamp ${oc.tz === true ? "COM tz" : "tz indefinido"}`,
-      );
+    // Drizzle `timestamp()` sem withTimezone emite `timestamp` (sem tz) —
+    // igual ao Rails. Só withTimezone:true diverge.
+    if (rc.type === "datetime" && oc.tz === true) {
+      typeMismatch.push(`${c}: rails=datetime (sem tz) vs nosso=timestamp COM tz`);
       continue;
     }
     const railsNull = !/null:\s*false/.test(rc.opts);
@@ -203,13 +210,33 @@ for (const t of [...rb.keys()].sort()) {
         `${c}: rails ${railsNull ? "NULL" : "NOT NULL"} vs nosso ${oursNull ? "NULL" : "NOT NULL"}`,
       );
     if (/default:/.test(rc.opts) !== oc.hasDefault) {
-      defaultNotes.push(
-        `${t}.${c}: default rails=${/default:/.test(rc.opts) ? "sim" : "não"} vs nosso=${oc.hasDefault ? "sim" : "não"} (aviso)`,
+      defaultMismatch.push(
+        `${c}: default rails=${/default:/.test(rc.opts) ? "sim" : "não"} vs nosso=${oc.hasDefault ? "sim" : "não"}`,
+      );
+    }
+    if (oc.unnamedUnique) {
+      const rUniq = r.indexes.find((ix) => ix.unique && ix.cols.length === 1 && ix.cols[0] === c);
+      defaultMismatch.push(
+        `${c}: .unique() sem nome explícito (Rails: ${rUniq ? rUniq.name : "sem índice unique"})`,
       );
     }
   }
-  if (missing.length || extra.length || typeMismatch.length || nullMismatch.length) {
-    colDiffs.push({ table: t, file: o.file, missing, extra, typeMismatch, nullMismatch });
+  if (
+    missing.length ||
+    extra.length ||
+    typeMismatch.length ||
+    nullMismatch.length ||
+    defaultMismatch.length
+  ) {
+    colDiffs.push({
+      table: t,
+      file: o.file,
+      missing,
+      extra,
+      typeMismatch,
+      nullMismatch,
+      defaultMismatch,
+    });
   }
   // índices: compara nomes explícitos
   const rIdx = new Set(r.indexes.map((idx) => idx.name));
@@ -239,17 +266,14 @@ for (const d of colDiffs) {
   if (d.extra.length) console.log(`   colunas extras (${d.extra.length}): ${d.extra.join(", ")}`);
   for (const x of d.typeMismatch) console.log(`   tipo: ${x}`);
   for (const x of d.nullMismatch) console.log(`   null: ${x}`);
+  for (const x of d.defaultMismatch) console.log(`   default: ${x}`);
 }
 for (const d of indexDiffs) {
   console.log(
     `\n-- índices faltantes em ${d.table} (${d.missing.length}): ${d.missing.join(", ")}`,
   );
 }
-if (defaultNotes.length) {
-  console.log(`\n-- avisos de default (não falham em D0, endurecem em D2): ${defaultNotes.length}`);
-  for (const n of defaultNotes.slice(0, 20)) console.log(`   ${n}`);
-  if (defaultNotes.length > 20) console.log(`   ... +${defaultNotes.length - 20} outros`);
-}
+
 if (pkDiffs.length) console.log(`\n-- PKs: ${pkDiffs.join("; ")}`);
 
 const hardFails = missingTables.length + extraTables.length + colDiffs.length + indexDiffs.length;

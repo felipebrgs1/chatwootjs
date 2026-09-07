@@ -1,4 +1,5 @@
 import {
+  contacts,
   conversations as conversationsTable,
   db,
   labels,
@@ -202,7 +203,6 @@ export async function applyActionItems(
                 tagId: label.id,
                 taggableType: "Conversation",
                 taggableId: conv.id,
-                accountId,
                 context: "labels",
               })
               .onConflictDoNothing();
@@ -367,15 +367,16 @@ export async function applyActionItems(
         break;
       }
       case "mute_conversation": {
+        // Rails: mute = resolve + contact.blocked (sem coluna muted).
         const muted = params.length === 0 ? true : params[0] !== false && params[0] !== "false";
-        if (conv.muted !== muted) {
+        if (conv.contactId) {
           await db
-            .update(conversationsTable)
-            .set({ muted, updatedAt: new Date() })
-            .where(eq(conversationsTable.id, conv.id));
-          conv = await findConversation(accountId, conv.id);
-          changed = true;
+            .update(contacts)
+            .set({ blocked: muted, updatedAt: new Date() })
+            .where(eq(contacts.id, conv.contactId));
         }
+        conv = await findConversation(accountId, conv.id);
+        changed = true;
         applied.push(action.action_name);
         break;
       }

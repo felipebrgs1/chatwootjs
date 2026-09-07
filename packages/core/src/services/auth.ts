@@ -1,14 +1,16 @@
 import { accessTokens, accountUsers, accounts, db, users } from "@chatwootjs/db";
 import { and, eq } from "drizzle-orm";
 
+import { defaultFeatureFlags, flagsToObject } from "../lib/feature-flags.js";
+import { localeCodeFromId, localeIdFromCode } from "../lib/locales.js";
+
 import { NotFoundError, UnauthorizedError, UnprocessableError } from "../lib/errors.js";
 import {
   digestOf,
-  invitationExpiresAt,
-  isExpired,
+  INVITATION_TTL_MS,
   opaqueToken,
-  refreshExpiresAt,
-  resetExpiresAt,
+  REFRESH_TTL_MS,
+  RESET_TTL_MS,
   signAccessToken,
 } from "../lib/tokens.js";
 import type { AuthCtx, Role } from "../policies/index.js";
@@ -35,14 +37,20 @@ export interface TokenPair {
   refreshToken: string;
 }
 
+// access_tokens segue o DDL Rails (owner_type/owner_id/token, sem expires_at):
+// a expiração deriva de created_at + TTL do tipo (refresh 30d, convite 7d, reset 2h).
+function tokenExpired(createdAt: Date | null, ttlMs: number): boolean {
+  if (!createdAt) return true;
+  return createdAt.getTime() + ttlMs <= Date.now();
+}
+
 async function issueTokenPair(userId: number): Promise<TokenPair> {
   const accessToken = await signAccessToken(userId);
   const { token: refreshToken, digest } = opaqueToken();
   await db.insert(accessTokens).values({
     ownerType: "refresh",
     ownerId: userId,
-    tokenDigest: digest,
-    expiresAt: refreshExpiresAt(),
+    token: digest,
   });
   return { accessToken, refreshToken };
 }
@@ -60,9 +68,9 @@ export interface AuthUser {
 export function toApiUser(row: typeof users.$inferSelect): AuthUser {
   return {
     id: row.id,
-    name: row.name,
-    email: row.email,
-    availability: AVAILABILITY_FROM_INT[row.availabilityStatus] ?? "online",
+    name: row.name ?? "",
+    email: row.email ?? "",
+    availability: AVAILABILITY_FROM_INT[row.availabilityStatus ?? 0] ?? "online",
     uiSettings: row.uiSettings,
   };
 }
@@ -96,9 +104,10 @@ export async function signUp(
     } else {
       await tx.update(users).set({ name: input.name, passwordDigest }).where(eq(users.id, user.id));
     }
+    // Rails: before_create :enable_default_features.
     const [account] = await tx
       .insert(accounts)
-      .values({ name: input.account_name?.trim() || `${input.name} Inc` })
+      .values({ name: input.account_name?.trim() || `${input.name} Inc`, ...defaultFeatureFlags() })
       .returning();
     if (!account) throw new UnprocessableError("Could not create account");
     await tx.insert(accountUsers).values({ userId: user.id, accountId: account.id, role: 1 });
@@ -112,10 +121,11 @@ export async function signUp(
   const membership = await db.query.accountUsers.findFirst({
     where: (au) => eq(au.userId, userId),
   });
-  if (!membership) throw new UnprocessableError("Could not create account membership");
+  const membershipAccountId = membership?.accountId;
+  if (!membershipAccountId) throw new UnprocessableError("Could not create account membership");
   return {
     user: toApiUser(row),
-    accountId: membership.accountId,
+    accountId: membershipAccountId,
     tokens: await issueTokenPair(userId),
   };
 }
@@ -131,18 +141,19 @@ export async function signIn(input: SignInInput): Promise<{ user: AuthUser; toke
 export async function refreshTokens(refreshToken: string): Promise<TokenPair> {
   const digest = digestOf(refreshToken);
   const stored = await db.query.accessTokens.findFirst({
-    where: (t, { eq: equals }) => equals(t.tokenDigest, digest),
+    where: (t, { eq: equals }) => equals(t.token, digest),
   });
-  if (!stored || stored.ownerType !== "refresh" || isExpired(stored.expiresAt)) {
+  if (!stored || stored.ownerType !== "refresh" || tokenExpired(stored.createdAt, REFRESH_TTL_MS)) {
     if (stored) await db.delete(accessTokens).where(eq(accessTokens.id, stored.id));
     throw new UnauthorizedError("Invalid refresh token");
   }
+  if (!stored.ownerId) throw new UnauthorizedError("Invalid refresh token");
   await db.delete(accessTokens).where(eq(accessTokens.id, stored.id));
   return issueTokenPair(stored.ownerId);
 }
 
 export async function signOut(refreshToken: string): Promise<void> {
-  await db.delete(accessTokens).where(eq(accessTokens.tokenDigest, digestOf(refreshToken)));
+  await db.delete(accessTokens).where(eq(accessTokens.token, digestOf(refreshToken)));
 }
 
 export async function forgotPassword(email: string): Promise<{ resetToken?: string }> {
@@ -153,8 +164,7 @@ export async function forgotPassword(email: string): Promise<{ resetToken?: stri
   await db.insert(accessTokens).values({
     ownerType: "password_reset",
     ownerId: row.id,
-    tokenDigest: digest,
-    expiresAt: resetExpiresAt(),
+    token: digest,
   });
   if (process.env.NODE_ENV !== "production") {
     console.log(`[auth] reset token for ${email}: ${token}`);
@@ -166,18 +176,23 @@ export async function forgotPassword(email: string): Promise<{ resetToken?: stri
 export async function resetPassword(token: string, password: string): Promise<void> {
   const digest = digestOf(token);
   const stored = await db.query.accessTokens.findFirst({
-    where: (t, { eq: equals }) => equals(t.tokenDigest, digest),
+    where: (t, { eq: equals }) => equals(t.token, digest),
   });
-  if (!stored || stored.ownerType !== "password_reset" || isExpired(stored.expiresAt)) {
+  const resetUserId = stored?.ownerId;
+  if (
+    !resetUserId ||
+    stored?.ownerType !== "password_reset" ||
+    tokenExpired(stored?.createdAt ?? null, RESET_TTL_MS)
+  ) {
     throw new UnprocessableError("Invalid or expired token", { token: ["inválido ou expirado"] });
   }
   const passwordDigest = await Bun.password.hash(password, { algorithm: "bcrypt", cost: 10 });
-  await db.update(users).set({ passwordDigest }).where(eq(users.id, stored.ownerId));
+  await db.update(users).set({ passwordDigest }).where(eq(users.id, resetUserId));
   await db.delete(accessTokens).where(eq(accessTokens.id, stored.id));
   // Revoga refresh tokens existentes por segurança.
   await db
     .delete(accessTokens)
-    .where(and(eq(accessTokens.ownerType, "refresh"), eq(accessTokens.ownerId, stored.ownerId)));
+    .where(and(eq(accessTokens.ownerType, "refresh"), eq(accessTokens.ownerId, resetUserId)));
 }
 
 // ---- Contas e agentes ----
@@ -196,15 +211,17 @@ export async function listMyAccounts(userId: number): Promise<ApiAccount[]> {
   });
   const result: ApiAccount[] = [];
   for (const membership of memberships) {
+    const memberAccountId = membership.accountId;
+    if (!memberAccountId) continue;
     const account = await db.query.accounts.findFirst({
-      where: (a, { eq: equals }) => equals(a.id, membership.accountId),
+      where: (a, { eq: equals }) => equals(a.id, memberAccountId),
     });
     if (account) {
       result.push({
         id: account.id,
-        name: account.name,
-        locale: account.locale,
-        role: toRole(membership.role),
+        name: account.name ?? "",
+        locale: localeCodeFromId(account.locale),
+        role: toRole(membership.role ?? 0),
       });
     }
   }
@@ -218,9 +235,9 @@ export async function getAccount(accountId: number): Promise<ApiAccount> {
   if (!account) throw new NotFoundError("Account not found");
   return {
     id: account.id,
-    name: account.name,
-    locale: account.locale,
-    feature_flags: (account.featureFlags ?? {}) as Record<string, unknown>,
+    name: account.name ?? "",
+    locale: localeCodeFromId(account.locale),
+    feature_flags: flagsToObject(account.featureFlags, account.featureFlagsExt1),
   };
 }
 
@@ -230,9 +247,9 @@ export async function updateAccount(
 ): Promise<ApiAccount> {
   const { requireAdmin } = await import("../policies/index.js");
   requireAdmin(auth);
-  const patch: Partial<{ name: string; locale: string }> = {};
+  const patch: Partial<{ name: string; locale: number }> = {};
   if (data.name !== undefined) patch.name = data.name;
-  if (data.locale !== undefined) patch.locale = data.locale;
+  if (data.locale !== undefined) patch.locale = localeIdFromCode(data.locale);
   if (Object.keys(patch).length > 0) {
     await db.update(accounts).set(patch).where(eq(accounts.id, auth.accountId));
   }
@@ -250,13 +267,15 @@ export async function listAgents(accountId: number): Promise<ApiAgent[]> {
   });
   const agents: ApiAgent[] = [];
   for (const membership of memberships) {
+    const memberUserId = membership.userId;
+    if (!memberUserId) continue;
     const row = await db.query.users.findFirst({
-      where: (u, { eq: equals }) => equals(u.id, membership.userId),
+      where: (u, { eq: equals }) => equals(u.id, memberUserId),
     });
     if (row) {
       agents.push({
         ...toApiUser(row),
-        role: toRole(membership.role),
+        role: toRole(membership.role ?? 0),
         confirmed: row.passwordDigest !== null,
       });
     }
@@ -299,8 +318,7 @@ export async function inviteAgent(
   await db.insert(accessTokens).values({
     ownerType: "invitation",
     ownerId: user.id,
-    tokenDigest: digest,
-    expiresAt: invitationExpiresAt(),
+    token: digest,
   });
   if (process.env.NODE_ENV !== "production") {
     console.log(`[auth] invitation token for ${email}: ${token}`);
@@ -320,9 +338,14 @@ export async function acceptInvitation(
 ): Promise<{ user: AuthUser }> {
   const digest = digestOf(token);
   const stored = await db.query.accessTokens.findFirst({
-    where: (t, { eq: equals }) => equals(t.tokenDigest, digest),
+    where: (t, { eq: equals }) => equals(t.token, digest),
   });
-  if (!stored || stored.ownerType !== "invitation" || isExpired(stored.expiresAt)) {
+  const invitedUserId = stored?.ownerId;
+  if (
+    !invitedUserId ||
+    stored?.ownerType !== "invitation" ||
+    tokenExpired(stored?.createdAt ?? null, INVITATION_TTL_MS)
+  ) {
     throw new UnprocessableError("Invalid or expired token", {
       token: ["convite inválido ou expirado"],
     });
@@ -330,10 +353,10 @@ export async function acceptInvitation(
   const passwordDigest = await Bun.password.hash(password, { algorithm: "bcrypt", cost: 10 });
   const patch: Partial<{ name: string; passwordDigest: string }> = { passwordDigest };
   if (name?.trim()) patch.name = name.trim();
-  await db.update(users).set(patch).where(eq(users.id, stored.ownerId));
+  await db.update(users).set(patch).where(eq(users.id, invitedUserId));
   await db.delete(accessTokens).where(eq(accessTokens.id, stored.id));
   const row = await db.query.users.findFirst({
-    where: (u, { eq: equals }) => equals(u.id, stored.ownerId),
+    where: (u, { eq: equals }) => equals(u.id, invitedUserId),
   });
   if (!row) throw new NotFoundError("User not found");
   return { user: toApiUser(row) };
@@ -354,7 +377,7 @@ export async function updateAgentRole(
   const membership = await db.query.accountUsers.findFirst({
     where: (au) => and(eq(au.userId, userId), eq(au.accountId, auth.accountId)),
   });
-  if (!membership) throw new NotFoundError("Agent not found");
+  if (!membership?.id) throw new NotFoundError("Agent not found");
   await db
     .update(accountUsers)
     .set({ role: role === "administrator" ? 1 : 0 })
@@ -390,7 +413,7 @@ export async function getProfile(userId: number): Promise<AuthUser> {
   if (!row) throw new NotFoundError("User not found");
   // Permissão do console /superadmin: e-mail presente em `super_admins`.
   const superRow = await db.query.superAdmins.findFirst({
-    where: (s, { eq: equals }) => equals(s.email, row.email.toLowerCase()),
+    where: (s, { eq: equals }) => equals(s.email, (row.email ?? "").toLowerCase()),
   });
   return { ...toApiUser(row), is_super_admin: !!superRow };
 }

@@ -38,30 +38,34 @@ export async function findWidgetInbox(websiteToken: string): Promise<WidgetInbox
     where: (c) => eq(c.websiteToken, websiteToken),
   });
   if (!channel) throw new NotFoundError("Website token not found");
+  if (channel.accountId == null) throw new NotFoundError("Website token not found");
+  const widgetAccountId = channel.accountId;
   const inbox = await db.query.inboxes.findFirst({
     where: (i) =>
       and(
-        eq(i.accountId, channel.accountId),
+        eq(i.accountId, widgetAccountId),
         eq(i.channelId, channel.id),
         eq(i.channelType, "Channel::WebWidget"),
       ),
   });
   if (!inbox) throw new NotFoundError("Inbox not found");
+  if (channel.accountId == null || channel.websiteToken == null)
+    throw new NotFoundError("Inbox not found");
   return {
     inboxId: inbox.id,
     accountId: channel.accountId,
-    name: inbox.name,
+    name: inbox.name ?? "",
     websiteToken: channel.websiteToken,
-    widgetColor: channel.widgetColor,
+    widgetColor: channel.widgetColor ?? "#1f93ff",
     welcomeTitle: channel.welcomeTitle,
     welcomeTagline: channel.welcomeTagline,
-    greetingEnabled: inbox.greetingEnabled,
+    greetingEnabled: inbox.greetingEnabled ?? false,
     greetingMessage: inbox.greetingMessage,
-    preChatFormEnabled: channel.preChatFormEnabled,
-    csatSurveyEnabled: inbox.csatSurveyEnabled,
-    workingHoursEnabled: inbox.workingHoursEnabled,
+    preChatFormEnabled: channel.preChatFormEnabled ?? false,
+    csatSurveyEnabled: inbox.csatSurveyEnabled ?? false,
+    workingHoursEnabled: inbox.workingHoursEnabled ?? false,
     outOfOfficeMessage: inbox.outOfOfficeMessage,
-    allowMessagesAfterResolved: inbox.allowMessagesAfterResolved,
+    allowMessagesAfterResolved: inbox.allowMessagesAfterResolved ?? false,
   };
 }
 
@@ -73,7 +77,7 @@ export async function findWidgetContact(
   const contactInbox = await db.query.contactInboxes.findFirst({
     where: (ci) => and(eq(ci.inboxId, inbox.inboxId), eq(ci.pubsubToken, contactToken)),
   });
-  if (!contactInbox) throw new NotFoundError("Contact session not found");
+  if (!contactInbox?.contactId) throw new NotFoundError("Contact session not found");
   return { contactId: contactInbox.contactId, contactInbox };
 }
 
@@ -159,7 +163,10 @@ export async function upsertWidgetContact(
     if (input.phone_number?.trim() && !contact.phoneNumber)
       patch.phoneNumber = input.phone_number.trim();
     if (input.custom_attributes) {
-      patch.customAttributes = { ...contact.customAttributes, ...input.custom_attributes };
+      patch.customAttributes = {
+        ...((contact.customAttributes ?? {}) as Record<string, unknown>),
+        ...input.custom_attributes,
+      };
     }
     if (Object.keys(patch).length > 1) {
       await db.update(contacts).set(patch).where(eq(contacts.id, contact.id));
@@ -183,7 +190,16 @@ export async function upsertWidgetContact(
     contactInbox = created;
   }
 
-  return { contact_token: contactInbox.pubsubToken, contact_id: contact.id };
+  let contactToken = contactInbox.pubsubToken;
+  if (!contactToken) {
+    // Rails não dá default: garante token quando ausente (legado/v1).
+    contactToken = newPubsubToken();
+    await db
+      .update(contactInboxes)
+      .set({ pubsubToken: contactToken })
+      .where(eq(contactInboxes.id, contactInbox.id));
+  }
+  return { contact_token: contactToken, contact_id: contact.id };
 }
 
 export async function updateWidgetContact(
@@ -203,7 +219,10 @@ export async function updateWidgetContact(
   if (input.email?.trim()) patch.email = input.email.trim().toLowerCase();
   if (input.phone_number?.trim()) patch.phoneNumber = input.phone_number.trim();
   if (input.custom_attributes) {
-    patch.customAttributes = { ...contact.customAttributes, ...input.custom_attributes };
+    patch.customAttributes = {
+      ...((contact.customAttributes ?? {}) as Record<string, unknown>),
+      ...input.custom_attributes,
+    };
   }
   await db.update(contacts).set(patch).where(eq(contacts.id, contact.id));
   return { contact_id: contact.id };
@@ -317,7 +336,7 @@ export async function markWidgetConversationRead(
   const conv = await findWidgetConversation(inbox, contactToken, conversationId);
   await db
     .update(conversations)
-    .set({ unreadIncomingMessagesCount: 0, contactLastSeenAt: new Date(), updatedAt: new Date() })
+    .set({ contactLastSeenAt: new Date(), updatedAt: new Date() })
     .where(eq(conversations.id, conv.id));
 }
 

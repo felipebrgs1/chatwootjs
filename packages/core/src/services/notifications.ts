@@ -1,11 +1,10 @@
 /**
  * M11 — Notificações (sino), preferências por tipo e filtros salvos (views).
- *
- * Emissores: assign (chamado por `assignConversation`), menção `@nome`
- * (chamado por `sendAgentMessage`) e nova mensagem em conversa participada
- * (`registerNotificationEmitters` escuta `message.created` no bus).
- * Tudo respeita `notification_settings.muted_flags` (sino desligado por tipo)
- * e publica `notification.created` no `/cable`.
+ * DDL Rails (D2): notification_settings guarda bitmasks email_flags/push_flags
+ * (FlagShihTzu, bits 1-based na ordem de Notification::NOTIFICATION_TYPES);
+ * notifications usa primary_actor (polimórfico); custom_filters usa filter_type.
+ * O "mute" do sino (sem coluna no Rails) = bits de e-mail+push desligados
+ * para o tipo (derivado, não armazenado).
  *
  * Referência: `notifications_controller.rb`, `notification_settings_controller.rb`,
  * `custom_filters_controller.rb` + `NotificationBell`/`CustomViews` do Vue.
@@ -32,17 +31,43 @@ import type {
 } from "../schemas/notifications.js";
 import { NOTIFICATION_TYPES } from "../schemas/notifications.js";
 
+// Nossos 3 tipos mapeados nos ints do enum Rails (Notification::NOTIFICATION_TYPES).
+// A API mantém os nomes v1; o banco carrega ints que o Rails interpreta.
 export const NOTIFICATION_TYPE_TO_INT: Record<NotificationTypeName, number> = {
-  assigned_conversation: 0,
-  conversation_mention: 1,
-  participating_conversation_new_message: 2,
+  assigned_conversation: 2, // conversation_assignment
+  conversation_mention: 4, // conversation_mention
+  participating_conversation_new_message: 5, // participating_conversation_new_message
 };
 
-const INT_TO_NOTIFICATION_TYPE = [
-  "assigned_conversation",
-  "conversation_mention",
-  "participating_conversation_new_message",
-] as const;
+const INT_TO_NOTIFICATION_TYPE: Record<number, NotificationTypeName> = {
+  2: "assigned_conversation",
+  4: "conversation_mention",
+  5: "participating_conversation_new_message",
+};
+
+// Bits 1-based de email_flags/push_flags (ordem de NOTIFICATION_TYPES no Rails).
+const TYPE_TO_BIT: Record<NotificationTypeName, number> = {
+  assigned_conversation: 2,
+  conversation_mention: 4,
+  participating_conversation_new_message: 5,
+};
+
+function bitsToNames(bits: number | null): NotificationTypeName[] {
+  const b = bits ?? 0;
+  return (Object.keys(TYPE_TO_BIT) as NotificationTypeName[]).filter(
+    (t) => (b & (1 << (TYPE_TO_BIT[t] - 1))) !== 0,
+  );
+}
+
+function namesToBits(names: readonly string[] | undefined): number | undefined {
+  if (!names) return undefined;
+  let b = 0;
+  for (const n of names) {
+    const bit = TYPE_TO_BIT[n as NotificationTypeName];
+    if (bit) b |= 1 << (bit - 1);
+  }
+  return b;
+}
 
 export interface ApiNotification {
   id: number;
@@ -63,11 +88,11 @@ function toApiNotification(
   return {
     id: row.id,
     notification_type: INT_TO_NOTIFICATION_TYPE[row.notificationType] ?? "assigned_conversation",
-    notificable_type: row.notificableType,
-    notificable_id: row.notificableId,
+    notificable_type: row.primaryActorType,
+    notificable_id: row.primaryActorId,
     read_at: row.readAt?.toISOString() ?? null,
     snoozed_until: row.snoozedUntil?.toISOString() ?? null,
-    created_at: row.createdAt.toISOString(),
+    created_at: row.createdAt?.toISOString() ?? "",
     conversation_id: extra.conversation_id ?? null,
     actor_name: extra.actor_name ?? null,
   };
@@ -114,11 +139,11 @@ export async function listNotifications(
   const items = await Promise.all(
     rows.map(async (row) => {
       let conversationId: number | null = null;
-      if (row.notificableType === "Conversation" && row.notificableId) {
-        conversationId = row.notificableId;
-      } else if (row.notificableType === "Message" && row.notificableId) {
+      if (row.primaryActorType === "Conversation" && row.primaryActorId) {
+        conversationId = row.primaryActorId;
+      } else if (row.primaryActorType === "Message" && row.primaryActorId) {
         const msg = await db.query.messages.findFirst({
-          where: (m) => eq(m.id, row.notificableId!),
+          where: (m) => eq(m.id, row.primaryActorId!),
           columns: { conversationId: true },
         });
         conversationId = msg?.conversationId ?? null;
@@ -202,11 +227,13 @@ export async function getNotificationSettings(
   const row = await db.query.notificationSettings.findFirst({
     where: (s) => and(eq(s.accountId, accountId), eq(s.userId, userId)),
   });
-  return {
-    email_flags: row?.emailFlags ?? [],
-    push_flags: row?.pushFlags ?? [],
-    muted_flags: row?.mutedFlags ?? [],
-  };
+  const email = bitsToNames(row?.emailFlags ?? null);
+  const push = bitsToNames(row?.pushFlags ?? null);
+  // Mutado = bits de e-mail E push desligados para o tipo.
+  const muted = (Object.keys(TYPE_TO_BIT) as NotificationTypeName[]).filter(
+    (t) => !email.includes(t) && !push.includes(t),
+  );
+  return { email_flags: email, push_flags: push, muted_flags: muted };
 }
 
 export async function updateNotificationSettings(
@@ -214,15 +241,30 @@ export async function updateNotificationSettings(
   userId: number,
   input: { email_flags?: string[]; push_flags?: string[]; muted_flags?: string[] },
 ): Promise<ApiNotificationSettings> {
-  const valid = (flags: string[] | undefined): string[] | undefined =>
-    flags?.filter((f) => (NOTIFICATION_TYPES as readonly string[]).includes(f));
-  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  const valid = (flags: string[] | undefined): NotificationTypeName[] | undefined =>
+    flags?.filter((f) => (NOTIFICATION_TYPES as readonly string[]).includes(f)) as
+      | NotificationTypeName[]
+      | undefined;
   const email = valid(input.email_flags);
   const push = valid(input.push_flags);
-  const muted = valid(input.muted_flags);
-  if (email) patch.emailFlags = email;
-  if (push) patch.pushFlags = push;
-  if (muted) patch.mutedFlags = muted;
+  const muted = new Set(valid(input.muted_flags) ?? []);
+  // Base atual em bits para preservar tipos não mencionados no input.
+  const current = await getNotificationSettings(accountId, userId);
+  const emailSet = new Set(email ?? current.email_flags);
+  const pushSet = new Set(push ?? current.push_flags);
+  for (const t of Object.keys(TYPE_TO_BIT) as NotificationTypeName[]) {
+    if (muted.has(t)) {
+      emailSet.delete(t);
+      pushSet.delete(t);
+    }
+  }
+  // Linha nova começa com tudo ligado (comportamento v1); o patch abaixo aplica.
+  const allOn = Object.keys(TYPE_TO_BIT) as NotificationTypeName[];
+  const patch: Record<string, unknown> = {
+    emailFlags: namesToBits(email || push || muted.size ? [...emailSet] : allOn) ?? 0,
+    pushFlags: namesToBits(email || push || muted.size ? [...pushSet] : allOn) ?? 0,
+    updatedAt: new Date(),
+  };
 
   const existing = await db.query.notificationSettings.findFirst({
     where: (s) => and(eq(s.accountId, accountId), eq(s.userId, userId)),
@@ -236,9 +278,8 @@ export async function updateNotificationSettings(
     await db.insert(notificationSettings).values({
       accountId,
       userId,
-      emailFlags: email ?? [],
-      pushFlags: push ?? [],
-      mutedFlags: muted ?? [],
+      emailFlags: patch.emailFlags as number,
+      pushFlags: patch.pushFlags as number,
     });
   }
   return getNotificationSettings(accountId, userId);
@@ -254,6 +295,8 @@ export interface NotifyInput {
   notificableId: number;
   conversationId?: number;
   actorName?: string;
+  secondaryActorType?: string;
+  secondaryActorId?: number;
 }
 
 /**
@@ -264,23 +307,32 @@ export async function notify(input: NotifyInput): Promise<ApiNotification | null
   const settings = await getNotificationSettings(input.accountId, input.userId);
   if (settings.muted_flags.includes(input.type)) return null;
   if (input.type === "participating_conversation_new_message") {
+    // Suprime se a conversa está mutada (Rails: contact.blocked).
     const conv = await db.query.conversations.findFirst({
       where: (c) =>
         and(
           eq(c.id, input.conversationId ?? input.notificableId),
           eq(c.accountId, input.accountId),
         ),
-      columns: { muted: true },
+      columns: { contactId: true },
     });
-    if (conv?.muted) return null;
+    if (conv?.contactId) {
+      const contact = await db.query.contacts.findFirst({
+        where: (ct) => eq(ct.id, conv.contactId!),
+        columns: { blocked: true },
+      });
+      if (contact?.blocked) return null;
+    }
   }
   const [row] = await db
     .insert(notifications)
     .values({
       accountId: input.accountId,
       userId: input.userId,
-      notificableType: input.notificableType,
-      notificableId: input.notificableId,
+      primaryActorType: input.notificableType,
+      primaryActorId: input.notificableId,
+      secondaryActorType: input.secondaryActorType ?? null,
+      secondaryActorId: input.secondaryActorId ?? null,
       notificationType: NOTIFICATION_TYPE_TO_INT[input.type],
     })
     .returning();
@@ -317,7 +369,9 @@ export async function processMentions(
     where: (au) => eq(au.accountId, accountId),
     columns: { userId: true },
   });
-  const ids = memberships.map((m) => m.userId).filter((id) => id !== authorId);
+  const ids = memberships
+    .map((m) => m.userId)
+    .filter((id): id is number => id != null && id !== authorId);
   if (ids.length === 0) return [];
   const agents = await db.query.users.findMany({
     where: (u, { inArray }) => inArray(u.id, ids),
@@ -325,7 +379,7 @@ export async function processMentions(
   });
   const mentioned: number[] = [];
   for (const agent of agents) {
-    const haystack = `${agent.name} ${agent.email.split("@")[0]}`.toLowerCase();
+    const haystack = `${agent.name ?? ""} ${(agent.email ?? "").split("@")[0]}`.toLowerCase();
     if (!tokens.some((t) => haystack.includes(t))) continue;
     await db
       .insert(mentions)
@@ -333,7 +387,6 @@ export async function processMentions(
         accountId,
         userId: agent.id,
         conversationId,
-        mentionedBy: authorId,
         mentionedAt: new Date(),
       })
       .onConflictDoNothing();
@@ -410,13 +463,15 @@ export interface ApiCustomFilter {
   visibility: number;
 }
 
+const FILTER_TYPE_TO_MODEL = ["conversation", "contact", "report"] as const;
+
 function toApiCustomFilter(row: typeof customFilters.$inferSelect): ApiCustomFilter {
   return {
     id: row.id,
-    name: row.name,
-    model_type: row.modelType,
-    query: row.query ?? {},
-    visibility: row.visibility,
+    name: row.name ?? "",
+    model_type: FILTER_TYPE_TO_MODEL[row.filterType ?? 0] ?? "conversation",
+    query: (row.query ?? {}) as Record<string, unknown>,
+    visibility: 0,
   };
 }
 
@@ -425,13 +480,11 @@ export async function listCustomFilters(
   userId: number,
 ): Promise<ApiCustomFilter[]> {
   const rows = await db.query.customFilters.findMany({
-    where: (f) => and(eq(f.accountId, accountId), eq(f.modelType, "conversation")),
+    where: (f) => and(eq(f.accountId, accountId), eq(f.filterType, 0)),
     orderBy: (f) => desc(f.createdAt),
   });
-  // pessoais de outro agente não aparecem (shared sim).
-  return rows
-    .filter((r) => r.visibility === 1 || r.userId === userId || r.userId == null)
-    .map(toApiCustomFilter);
+  // Rails: filtros são pessoais (dono ou admin).
+  return rows.filter((r) => r.userId === userId || r.userId == null).map(toApiCustomFilter);
 }
 
 export async function createCustomFilter(
@@ -445,9 +498,8 @@ export async function createCustomFilter(
       accountId,
       userId,
       name: input.name,
-      modelType: input.model_type ?? "conversation",
+      filterType: 0,
       query: input.query as Record<string, unknown>,
-      visibility: input.visibility ?? 0,
     })
     .returning();
   if (!row) throw new Error("Could not create filter");
@@ -470,7 +522,6 @@ export async function updateCustomFilter(
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (input.name !== undefined) patch.name = input.name;
   if (input.query !== undefined) patch.query = input.query;
-  if (input.visibility !== undefined) patch.visibility = input.visibility;
   await db.update(customFilters).set(patch).where(eq(customFilters.id, id));
   const fresh = await db.query.customFilters.findFirst({ where: (f) => eq(f.id, id) });
   if (!fresh) throw new NotFoundError("Filter not found");

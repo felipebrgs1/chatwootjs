@@ -75,11 +75,11 @@ export async function toApiMessage(row: Message): Promise<ApiMessage> {
   return {
     id: row.id,
     content: row.content,
-    message_type: MESSAGE_TYPE_FROM_INT[row.messageType] ?? "incoming",
-    private: row.private,
+    message_type: MESSAGE_TYPE_FROM_INT[row.messageType ?? 0] ?? "incoming",
+    private: row.private ?? false,
     content_type: "text",
-    content_attributes: row.contentAttributes ?? {},
-    status: STATUS_FROM_INT[row.status] ?? "sent",
+    content_attributes: (row.contentAttributes ?? {}) as Record<string, unknown>,
+    status: STATUS_FROM_INT[row.status ?? 0] ?? "sent",
     sender: row.senderType
       ? {
           id: row.senderId,
@@ -89,11 +89,11 @@ export async function toApiMessage(row: Message): Promise<ApiMessage> {
       : null,
     attachments: atts.map((a) => ({
       id: a.id,
-      file_type: FILE_TYPE_FROM_INT[a.fileType] ?? "file",
+      file_type: a.fileType == null ? "file" : (FILE_TYPE_FROM_INT[a.fileType] ?? "file"),
       external_url: a.externalUrl,
       extension: a.extension,
       fallback_title: a.fallbackTitle,
-      meta: a.meta ?? {},
+      meta: (a.meta ?? {}) as Record<string, unknown>,
     })),
     created_at: Math.floor(row.createdAt.getTime() / 1000),
   };
@@ -222,9 +222,9 @@ export async function createIncomingMessage(
     .returning();
   if (!row) throw new UnprocessableError("Could not create message");
 
+  // Rails calcula unread a partir de messages (sem coluna de contagem).
   const patch: Record<string, unknown> = {
     lastActivityAt: new Date(),
-    unreadIncomingMessagesCount: conv.unreadIncomingMessagesCount + 1,
     updatedAt: new Date(),
   };
   if (!conv.waitingSince) patch.waitingSince = new Date();
@@ -342,7 +342,7 @@ export async function addParticipants(
     where: (au) => and(eq(au.accountId, accountId), inArray(au.userId, userIds)),
     columns: { userId: true },
   });
-  const ids = agents.map((a) => a.userId);
+  const ids = agents.map((a) => a.userId).filter((x): x is number => x != null);
   if (ids.length === 0) throw new UnprocessableError("No valid agents");
   await db
     .insert(conversationParticipants)

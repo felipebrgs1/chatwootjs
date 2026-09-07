@@ -9,7 +9,7 @@ import {
   users,
   type Conversation,
 } from "@chatwootjs/db";
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { NotFoundError, UnprocessableError } from "../lib/errors.js";
 import { publish } from "../realtime/index.js";
@@ -77,6 +77,22 @@ function toEpoch(date: Date | null | undefined): number | null {
   return date ? Math.floor(date.getTime() / 1000) : null;
 }
 
+// Rails: unread = incoming criadas após agent_last_seen_at (ou todas se null).
+async function unreadCountFor(row: Conversation): Promise<number> {
+  const conds = [eq(messages.conversationId, row.id), eq(messages.messageType, 0)];
+  const [r] = await db
+    .select({ n: count() })
+    .from(messages)
+    .where(
+      row.agentLastSeenAt
+        ? and(...conds, gt(messages.createdAt, row.agentLastSeenAt))
+        : and(...conds),
+    );
+  return r?.n ?? 0;
+}
+
+// taggings segue o DDL Rails (sem account_id): o escopo por conta vem do join
+// com labels (taggings de uma conversa só existem na conta dela).
 async function labelsFor(conversationId: number): Promise<string[]> {
   const rows = await db
     .select({ title: labels.title })
@@ -124,8 +140,9 @@ export async function toApiConversationItem(row: Conversation): Promise<ApiConve
     team_id: row.teamId,
     snoozed_until: toEpoch(row.snoozedUntil),
     waiting_since: toEpoch(row.waitingSince),
-    unread_count: row.unreadIncomingMessagesCount,
-    muted: row.muted,
+    unread_count: await unreadCountFor(row),
+    // Rails: muted? = contact.blocked (mute resolve + bloqueia o contato).
+    muted: contact?.blocked ?? false,
     labels: labelsList,
     last_activity_at: Math.floor(row.lastActivityAt.getTime() / 1000),
     first_reply_created_at: toEpoch(row.firstReplyCreatedAt),
@@ -136,7 +153,7 @@ export async function toApiConversationItem(row: Conversation): Promise<ApiConve
         thumbnail: null,
         type: "contact",
       },
-      assignee: assignee ? { id: assignee.id, name: assignee.name } : null,
+      assignee: assignee ? { id: assignee.id, name: assignee.name ?? "" } : null,
     },
     messages: lastMessages.map((m) => ({
       id: m.id,
@@ -164,17 +181,17 @@ export async function toApiConversationDetail(row: Conversation): Promise<ApiCon
     contact: contact
       ? {
           id: contact.id,
-          name: contact.name,
+          name: contact.name ?? "",
           email: contact.email,
           phone_number: contact.phoneNumber,
-          additional_attributes: contact.additionalAttributes ?? {},
-          custom_attributes: contact.customAttributes ?? {},
+          additional_attributes: (contact.additionalAttributes ?? {}) as Record<string, unknown>,
+          custom_attributes: (contact.customAttributes ?? {}) as Record<string, unknown>,
         }
       : null,
     participants: participants.map((p) => ({
       id: p.user.id,
-      name: p.user.name,
-      email: p.user.email,
+      name: p.user.name ?? "",
+      email: p.user.email ?? "",
     })),
   };
 }
@@ -275,13 +292,13 @@ export async function listConversations(
       .innerJoin(labels, eq(labels.id, taggings.tagId))
       .where(
         and(
-          eq(taggings.accountId, accountId),
+          eq(labels.accountId, accountId),
           eq(taggings.taggableType, "Conversation"),
           eq(taggings.context, "labels"),
           inArray(labels.title, query.labels),
         ),
       );
-    const ids = tagged.map((t) => t.taggableId);
+    const ids = tagged.map((t) => t.taggableId).filter((x): x is number => x != null);
     if (ids.length === 0) {
       return {
         data: [],
@@ -682,6 +699,8 @@ export async function setConversationLabels(
   return normalized;
 }
 
+// Rails (ConversationMuteHelpers): mute = resolve + contact.blocked=true +
+// activity message; unmute = contact.blocked=false + activity message.
 export async function muteConversation(
   accountId: number,
   id: number,
@@ -689,10 +708,22 @@ export async function muteConversation(
   muted: boolean,
 ): Promise<void> {
   const row = await assertConversationAccess(accountId, id, auth);
-  await db
-    .update(conversations)
-    .set({ muted, updatedAt: new Date() })
-    .where(eq(conversations.id, row.id));
+  if (row.contactId) {
+    await db
+      .update(contacts)
+      .set({ blocked: muted, updatedAt: new Date() })
+      .where(eq(contacts.id, row.contactId));
+  }
+  if (muted && row.status !== STATUS_TO_INT.resolved) {
+    await db
+      .update(conversations)
+      .set({ status: STATUS_TO_INT.resolved, updatedAt: new Date() })
+      .where(eq(conversations.id, row.id));
+  }
+  await createActivityMessage(
+    await assertConversationAccess(accountId, id, auth),
+    muted ? "Conversation was muted" : "Conversation was unmuted",
+  );
 }
 
 export async function markConversationRead(
@@ -704,7 +735,6 @@ export async function markConversationRead(
   await db
     .update(conversations)
     .set({
-      unreadIncomingMessagesCount: 0,
       agentLastSeenAt: new Date(),
       assigneeLastSeenAt: new Date(),
       updatedAt: new Date(),

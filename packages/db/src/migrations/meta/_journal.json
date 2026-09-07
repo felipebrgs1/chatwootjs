@@ -5,78 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1788711120793,
-      "tag": "0000_fixed_rage",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1788714896472,
-      "tag": "0001_empty_revanche",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788715880955,
-      "tag": "0002_clammy_sabra",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1788717895533,
-      "tag": "0003_smiling_hulk",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1788720871242,
-      "tag": "0004_ancient_swarm",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1788722145730,
-      "tag": "0005_quick_menace",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1788723382883,
-      "tag": "0006_sad_silver_surfer",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1788734339763,
-      "tag": "0007_icy_excalibur",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1788741552411,
-      "tag": "0008_wet_sharon_carter",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1788742572717,
-      "tag": "0009_tearful_gateway",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1788799149046,
-      "tag": "0010_nice_sir_ram",
+      "when": 1788800625923,
+      "tag": "0000_simple_chronomancer",
       "breakpoints": true
     }
   ]

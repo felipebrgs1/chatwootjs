@@ -3,23 +3,126 @@ import {
   bigserial,
   boolean,
   doublePrecision,
-  index,
   integer,
   jsonb,
-  pgTable,
   text,
   timestamp,
-  unique,
   varchar,
   vector,
+  pgTable,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-// D1 — Captain (IA), sessões de agente, outcomes e embeddings de artigos.
-// Espelha `chatwoot/db/schema.rb`. Sem FKs em D1 (D2 alinha); índices
-// exóticos (ivfflat/gist, gin, expressão md5/lower, parciais com WHERE que
-// mudam semântica) ficam para D2 — aqui só btree com nomes Rails exatos.
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
-const ts = (name: string) => timestamp(name, { withTimezone: false });
+export const agentSessions = pgTable(
+  "agent_sessions",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    sessionType: integer("session_type").notNull(),
+    subjectType: varchar("subject_type", { length: 255 }).notNull(),
+    subjectId: bigint("subject_id", { mode: "number" }).notNull(),
+    resultType: varchar("result_type", { length: 255 }),
+    resultId: bigint("result_id", { mode: "number" }),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }),
+    llmModel: varchar("llm_model", { length: 255 }),
+    creditsConsumed: doublePrecision("credits_consumed"),
+    faqIds: jsonb("faq_ids").default([]),
+    documentIds: jsonb("document_ids").default([]),
+    scenarioIds: jsonb("scenario_ids").default([]),
+    runContext: jsonb("run_context").default({}),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    citedDocumentIds: jsonb("cited_document_ids").notNull().default([]),
+    usedFaqIds: jsonb("used_faq_ids").notNull().default([]),
+  },
+  (table) => [
+    index("idx_on_account_id_result_type_result_id_ca66c00cd7").on(
+      table.accountId,
+      table.resultType,
+      table.resultId,
+    ),
+    index("idx_on_account_id_session_type_created_at_c20a14bd4e").on(
+      table.accountId,
+      table.sessionType,
+      table.createdAt,
+    ),
+    index("idx_on_account_id_subject_type_subject_id_6d60963b3d").on(
+      table.accountId,
+      table.subjectType,
+      table.subjectId,
+    ),
+    index("index_agent_sessions_on_account_id").on(table.accountId),
+    index("index_agent_sessions_on_assistant_id").on(table.assistantId),
+    index("index_agent_sessions_on_cited_document_ids").using("gin", table.citedDocumentIds),
+    index("index_agent_sessions_on_document_ids").using("gin", table.documentIds),
+    index("index_agent_sessions_on_used_faq_ids").using("gin", table.usedFaqIds),
+    index("index_agent_sessions_on_user_id").on(table.userId),
+  ],
+);
+
+export const articleEmbeddings = pgTable(
+  "article_embeddings",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    articleId: bigint("article_id", { mode: "number" }).notNull(),
+    term: text("term").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("index_article_embeddings_on_embedding").using(
+      "ivfflat",
+      table.embedding.op("vector_l2_ops"),
+    ),
+  ],
+);
+
+export const captainAssistantResponses = pgTable(
+  "captain_assistant_responses",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    question: varchar("question", { length: 255 }).notNull(),
+    answer: text("answer").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }),
+    assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
+    documentableId: bigint("documentable_id", { mode: "number" }),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    status: integer("status").notNull().default(1),
+    documentableType: varchar("documentable_type", { length: 255 }),
+    edited: boolean("edited").notNull().default(false),
+  },
+  (table) => [
+    index("index_captain_assistant_responses_on_account_id").on(table.accountId),
+    index("index_captain_assistant_responses_on_assistant_id").on(table.assistantId),
+    index("idx_cap_asst_resp_on_documentable").on(table.documentableId, table.documentableType),
+    index("vector_idx_knowledge_entries_embedding").using(
+      "ivfflat",
+      table.embedding.op("vector_l2_ops"),
+    ),
+    index("index_captain_assistant_responses_on_status").on(table.status),
+  ],
+);
 
 export const captainAssistants = pgTable(
   "captain_assistants",
@@ -28,13 +131,49 @@ export const captainAssistants = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     accountId: bigint("account_id", { mode: "number" }).notNull(),
     description: text("description"),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
-    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
-    responseGuidelines: jsonb("response_guidelines").$type<unknown[]>().default([]),
-    guardrails: jsonb("guardrails").$type<unknown[]>().default([]),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    config: jsonb("config").notNull().default({}),
+    responseGuidelines: jsonb("response_guidelines").default([]),
+    guardrails: jsonb("guardrails").default([]),
   },
   (table) => [index("index_captain_assistants_on_account_id").on(table.accountId)],
+);
+
+export const captainCustomTools = pgTable(
+  "captain_custom_tools",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description"),
+    httpMethod: varchar("http_method", { length: 255 }).notNull().default("GET"),
+    endpointUrl: text("endpoint_url").notNull(),
+    requestTemplate: text("request_template"),
+    responseTemplate: text("response_template"),
+    authType: varchar("auth_type", { length: 255 }).default("none"),
+    authConfig: jsonb("auth_config").default({}),
+    paramSchema: jsonb("param_schema").default([]),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("index_captain_custom_tools_on_account_id_and_slug").on(
+      table.accountId,
+      table.slug,
+    ),
+    index("index_captain_custom_tools_on_account_id").on(table.accountId),
+  ],
 );
 
 export const captainDocuments = pgTable(
@@ -46,16 +185,22 @@ export const captainDocuments = pgTable(
     content: text("content"),
     assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
     accountId: bigint("account_id", { mode: "number" }).notNull(),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
     status: integer("status").notNull().default(0),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    metadata: jsonb("metadata").default({}),
     syncStatus: integer("sync_status"),
-    lastSyncedAt: ts("last_synced_at"),
-    lastSyncAttemptedAt: ts("last_sync_attempted_at"),
+    lastSyncedAt: timestamp("last_synced_at"),
+    lastSyncAttemptedAt: timestamp("last_sync_attempted_at"),
   },
   (table) => [
-    // O unique real do Rails é expressão (assistant_id, md5(external_link)) — D2.
+    uniqueIndex("idx_captain_documents_on_assistant_id_and_external_link_md5").on(
+      sql`assistant_id, md5(external_link)`,
+    ),
     index("idx_captain_documents_on_account_assistant_sync_stats").on(
       table.accountId,
       table.assistantId,
@@ -72,55 +217,6 @@ export const captainDocuments = pgTable(
   ],
 );
 
-export const captainAssistantResponses = pgTable(
-  "captain_assistant_responses",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    question: varchar("question", { length: 255 }).notNull(),
-    answer: text("answer").notNull(),
-    embedding: vector("embedding", { dimensions: 1536 }),
-    assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
-    documentableId: bigint("documentable_id", { mode: "number" }),
-    accountId: bigint("account_id", { mode: "number" }).notNull(),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
-    status: integer("status").notNull().default(1),
-    documentableType: varchar("documentable_type", { length: 255 }),
-    edited: boolean("edited").notNull().default(false),
-  },
-  (table) => [
-    index("index_captain_assistant_responses_on_account_id").on(table.accountId),
-    index("index_captain_assistant_responses_on_assistant_id").on(table.assistantId),
-    index("idx_cap_asst_resp_on_documentable").on(table.documentableId, table.documentableType),
-    index("index_captain_assistant_responses_on_status").on(table.status),
-  ],
-);
-
-export const captainCustomTools = pgTable(
-  "captain_custom_tools",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    accountId: bigint("account_id", { mode: "number" }).notNull(),
-    slug: varchar("slug", { length: 255 }).notNull(),
-    title: varchar("title", { length: 255 }).notNull(),
-    description: text("description"),
-    httpMethod: varchar("http_method", { length: 255 }).notNull().default("GET"),
-    endpointUrl: text("endpoint_url").notNull(),
-    requestTemplate: text("request_template"),
-    responseTemplate: text("response_template"),
-    authType: varchar("auth_type", { length: 255 }).default("none"),
-    authConfig: jsonb("auth_config").$type<Record<string, unknown>>().default({}),
-    paramSchema: jsonb("param_schema").$type<unknown[]>().default([]),
-    enabled: boolean("enabled").notNull().default(true),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
-  },
-  (table) => [
-    unique("index_captain_custom_tools_on_account_id_and_slug").on(table.accountId, table.slug),
-    index("index_captain_custom_tools_on_account_id").on(table.accountId),
-  ],
-);
-
 export const captainFaqObservations = pgTable(
   "captain_faq_observations",
   {
@@ -132,17 +228,18 @@ export const captainFaqObservations = pgTable(
     generatedAnswer: text("generated_answer").notNull(),
     language: varchar("language", { length: 255 }).notNull().default("en"),
     status: integer("status").notNull().default(0),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
-    // No Rails é parcial (WHERE faq_suggestion_id IS NOT NULL); em PG o unique
-    // simples é equivalente (NULLs não conflitam).
-    unique("idx_captain_faq_observations_on_conversation_and_suggestion").on(
-      table.conversationId,
-      table.faqSuggestionId,
-    ),
     index("index_captain_faq_observations_on_account_id").on(table.accountId),
+    uniqueIndex("idx_captain_faq_observations_on_conversation_and_suggestion")
+      .on(table.conversationId, table.faqSuggestionId)
+      .where(sql`(faq_suggestion_id IS NOT NULL)`),
     index("index_captain_faq_observations_on_conversation_id").on(table.conversationId),
     index("index_captain_faq_observations_on_faq_suggestion_id").on(table.faqSuggestionId),
   ],
@@ -160,8 +257,12 @@ export const captainFaqSuggestions = pgTable(
     language: varchar("language", { length: 255 }).notNull().default("en"),
     sourceCount: integer("source_count").notNull().default(0),
     status: integer("status").notNull().default(0),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("index_captain_faq_suggestions_on_account_id").on(table.accountId),
@@ -172,6 +273,10 @@ export const captainFaqSuggestions = pgTable(
       table.language,
     ),
     index("index_captain_faq_suggestions_on_assistant_id").on(table.assistantId),
+    index("vector_idx_captain_faq_suggestions_embedding").using(
+      "ivfflat",
+      sql`"embedding" vector_cosine_ops`,
+    ),
   ],
 );
 
@@ -181,11 +286,15 @@ export const captainInboxes = pgTable(
     id: bigserial("id", { mode: "number" }).primaryKey(),
     captainAssistantId: bigint("captain_assistant_id", { mode: "number" }).notNull(),
     inboxId: bigint("inbox_id", { mode: "number" }).notNull(),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
-    unique("index_captain_inboxes_on_captain_assistant_id_and_inbox_id").on(
+    uniqueIndex("index_captain_inboxes_on_captain_assistant_id_and_inbox_id").on(
       table.captainAssistantId,
       table.inboxId,
     ),
@@ -204,8 +313,12 @@ export const captainMessageReports = pgTable(
     userId: bigint("user_id", { mode: "number" }).notNull(),
     reportReason: varchar("report_reason", { length: 255 }).notNull(),
     description: text("description"),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("index_captain_message_reports_on_account_id").on(table.accountId),
@@ -222,12 +335,16 @@ export const captainScenarios = pgTable(
     title: varchar("title", { length: 255 }),
     description: text("description"),
     instruction: text("instruction"),
-    tools: jsonb("tools").$type<unknown[]>().default([]),
+    tools: jsonb("tools").default([]),
     enabled: boolean("enabled").notNull().default(true),
     assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
     accountId: bigint("account_id", { mode: "number" }).notNull(),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("index_captain_scenarios_on_account_id").on(table.accountId),
@@ -248,20 +365,24 @@ export const conversationOutcomes = pgTable(
     assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
     conversationId: bigint("conversation_id", { mode: "number" }).notNull(),
     inboxId: bigint("inbox_id", { mode: "number" }).notNull(),
-    firstCaptainReplyAt: ts("first_captain_reply_at"),
-    lastCaptainReplyAt: ts("last_captain_reply_at"),
+    firstCaptainReplyAt: timestamp("first_captain_reply_at"),
+    lastCaptainReplyAt: timestamp("last_captain_reply_at"),
     captainReplyCount: integer("captain_reply_count").notNull().default(0),
-    firstHumanReplyAt: ts("first_human_reply_at"),
-    handoffAt: ts("handoff_at"),
+    firstHumanReplyAt: timestamp("first_human_reply_at"),
+    handoffAt: timestamp("handoff_at"),
     handoffReasonCategory: varchar("handoff_reason_category", { length: 255 }),
-    resolvedAt: ts("resolved_at"),
+    resolvedAt: timestamp("resolved_at"),
     csatRating: integer("csat_rating"),
-    csatReceivedAt: ts("csat_received_at"),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    csatReceivedAt: timestamp("csat_received_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
     episodeTrigger: varchar("episode_trigger", { length: 255 }).notNull().default("initial"),
-    startedAt: ts("started_at").notNull(),
-    endedAt: ts("ended_at"),
+    startedAt: timestamp("started_at").notNull(),
+    endedAt: timestamp("ended_at"),
   },
   (table) => [
     index("idx_conversation_outcomes_on_assistant_handoff_at").on(
@@ -279,12 +400,17 @@ export const conversationOutcomes = pgTable(
       table.assistantId,
       table.startedAt,
     ),
-    unique("idx_conversation_outcomes_unique_boundary").on(
+    uniqueIndex("idx_conversation_outcomes_unique_boundary").on(
       table.accountId,
       table.conversationId,
       table.startedAt,
     ),
-    // Parciais do Rails (episode_trigger='initial', ended_at IS NULL) — D2.
+    uniqueIndex("idx_conversation_outcomes_initial_episode")
+      .on(table.accountId, table.conversationId)
+      .where(sql`((episode_trigger)::text = 'initial'::text)`),
+    uniqueIndex("idx_conversation_outcomes_open_episode")
+      .on(table.accountId, table.conversationId)
+      .where(sql`(ended_at IS NULL)`),
     index("index_conversation_outcomes_on_account_id").on(table.accountId),
     index("index_conversation_outcomes_on_assistant_id").on(table.assistantId),
     index("index_conversation_outcomes_on_conversation_id").on(table.conversationId),
@@ -292,71 +418,15 @@ export const conversationOutcomes = pgTable(
   ],
 );
 
-export const agentSessions = pgTable(
-  "agent_sessions",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    sessionType: integer("session_type").notNull(),
-    subjectType: varchar("subject_type", { length: 255 }).notNull(),
-    subjectId: bigint("subject_id", { mode: "number" }).notNull(),
-    resultType: varchar("result_type", { length: 255 }),
-    resultId: bigint("result_id", { mode: "number" }),
-    accountId: bigint("account_id", { mode: "number" }).notNull(),
-    assistantId: bigint("assistant_id", { mode: "number" }).notNull(),
-    userId: bigint("user_id", { mode: "number" }),
-    llmModel: varchar("llm_model", { length: 255 }),
-    creditsConsumed: doublePrecision("credits_consumed"),
-    faqIds: jsonb("faq_ids").$type<unknown[]>().default([]),
-    documentIds: jsonb("document_ids").$type<unknown[]>().default([]),
-    scenarioIds: jsonb("scenario_ids").$type<unknown[]>().default([]),
-    runContext: jsonb("run_context").$type<Record<string, unknown>>().default({}),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
-    citedDocumentIds: jsonb("cited_document_ids").$type<unknown[]>().notNull().default([]),
-    usedFaqIds: jsonb("used_faq_ids").$type<unknown[]>().notNull().default([]),
-  },
-  (table) => [
-    index("idx_on_account_id_result_type_result_id_ca66c00cd7").on(
-      table.accountId,
-      table.resultType,
-      table.resultId,
-    ),
-    index("idx_on_account_id_session_type_created_at_c20a14bd4e").on(
-      table.accountId,
-      table.sessionType,
-      table.createdAt,
-    ),
-    index("idx_on_account_id_subject_type_subject_id_6d60963b3d").on(
-      table.accountId,
-      table.subjectType,
-      table.subjectId,
-    ),
-    index("index_agent_sessions_on_account_id").on(table.accountId),
-    index("index_agent_sessions_on_assistant_id").on(table.assistantId),
-    // GIN em cited/document/used ids — D2.
-    index("index_agent_sessions_on_user_id").on(table.userId),
-  ],
-);
-
-export const articleEmbeddings = pgTable("article_embeddings", {
-  id: bigserial("id", { mode: "number" }).primaryKey(),
-  articleId: bigint("article_id", { mode: "number" }).notNull(),
-  term: text("term").notNull(),
-  embedding: vector("embedding", { dimensions: 1536 }),
-  createdAt: ts("created_at").notNull(),
-  updatedAt: ts("updated_at").notNull(),
-  // Índice ivfflat em embedding — D2.
-});
-
-export type CaptainAssistant = typeof captainAssistants.$inferSelect;
-export type CaptainDocument = typeof captainDocuments.$inferSelect;
+export type AgentSession = typeof agentSessions.$inferSelect;
+export type ArticleEmbedding = typeof articleEmbeddings.$inferSelect;
 export type CaptainAssistantResponse = typeof captainAssistantResponses.$inferSelect;
+export type CaptainAssistant = typeof captainAssistants.$inferSelect;
 export type CaptainCustomTool = typeof captainCustomTools.$inferSelect;
+export type CaptainDocument = typeof captainDocuments.$inferSelect;
 export type CaptainFaqObservation = typeof captainFaqObservations.$inferSelect;
 export type CaptainFaqSuggestion = typeof captainFaqSuggestions.$inferSelect;
 export type CaptainInbox = typeof captainInboxes.$inferSelect;
 export type CaptainMessageReport = typeof captainMessageReports.$inferSelect;
 export type CaptainScenario = typeof captainScenarios.$inferSelect;
 export type ConversationOutcome = typeof conversationOutcomes.$inferSelect;
-export type AgentSession = typeof agentSessions.$inferSelect;
-export type ArticleEmbedding = typeof articleEmbeddings.$inferSelect;

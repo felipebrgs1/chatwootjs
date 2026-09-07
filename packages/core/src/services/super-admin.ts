@@ -5,6 +5,8 @@
 import { accounts, accountUsers, db, installationConfigs, users } from "@chatwootjs/db";
 import { count, desc, eq, ilike, or } from "drizzle-orm";
 
+import { localeCodeFromId } from "../lib/locales.js";
+
 import { NotFoundError, UnauthorizedError, UnprocessableError } from "../lib/errors.js";
 import { signSuperAccessToken, verifySuperAccessToken } from "../lib/tokens.js";
 
@@ -49,10 +51,10 @@ export async function listAllAccounts(
         .where(eq(accountUsers.accountId, a.id));
       return {
         id: a.id,
-        name: a.name,
-        locale: a.locale,
+        name: a.name ?? "",
+        locale: localeCodeFromId(a.locale),
         users: members[0]?.total ?? 0,
-        created_at: a.createdAt.toISOString(),
+        created_at: a.createdAt?.toISOString() ?? "",
       };
     }),
   );
@@ -76,7 +78,7 @@ export async function listAllUsers(
         .select({ total: count() })
         .from(accountUsers)
         .where(eq(accountUsers.userId, u.id));
-      return { ...u, accounts: links[0]?.total ?? 0 };
+      return { id: u.id, name: u.name ?? "", email: u.email ?? "", accounts: links[0]?.total ?? 0 };
     }),
   );
 }
@@ -100,7 +102,12 @@ export async function listInstallationConfigs(): Promise<
   const rows = await db.query.installationConfigs.findMany({
     orderBy: (c) => c.name,
   });
-  return rows.map((r) => ({ id: r.id, name: r.name, value: r.value, locked: r.locked }));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name ?? "",
+    value: r.serializedValue,
+    locked: r.locked ?? false,
+  }));
 }
 
 export async function upsertInstallationConfig(
@@ -115,18 +122,28 @@ export async function upsertInstallationConfig(
   if (existing) {
     const [row] = await db
       .update(installationConfigs)
-      .set({ value: value as Record<string, unknown>, updatedAt: new Date() })
+      .set({ serializedValue: value as Record<string, unknown>, updatedAt: new Date() })
       .where(eq(installationConfigs.id, existing.id))
       .returning();
     if (!row) throw new NotFoundError("Config not found");
-    return { id: row.id, name: row.name, value: row.value, locked: row.locked };
+    return {
+      id: row.id,
+      name: row.name ?? "",
+      value: row.serializedValue,
+      locked: row.locked ?? false,
+    };
   }
   const [row] = await db
     .insert(installationConfigs)
-    .values({ name: key, value: value as Record<string, unknown> })
+    .values({ name: key, serializedValue: value as Record<string, unknown> })
     .returning();
   if (!row) throw new UnprocessableError("Could not save config");
-  return { id: row.id, name: row.name, value: row.value, locked: row.locked };
+  return {
+    id: row.id,
+    name: row.name ?? "",
+    value: row.serializedValue,
+    locked: row.locked ?? false,
+  };
 }
 
 export async function listPlatformApps(): Promise<Array<{ id: number; name: string }>> {

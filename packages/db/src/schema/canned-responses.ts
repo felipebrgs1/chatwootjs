@@ -1,37 +1,19 @@
-import {
-  index,
-  integer,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-  unique,
-  varchar,
-} from "drizzle-orm/pg-core";
+import { integer, serial, text, timestamp, varchar, pgTable } from "drizzle-orm/pg-core";
 
-import { accounts } from "./auth";
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
-// Respostas prontas (`//atalho`) — espelha `canned_responses` do schema.rb.
-
-export const cannedResponses = pgTable(
-  "canned_responses",
-  {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    shortCode: varchar("short_code", { length: 255 }),
-    content: text("content"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    unique("index_canned_responses_on_short_code_and_account_id").on(
-      table.shortCode,
-      table.accountId,
-    ),
-    index("index_canned_responses_on_account_id").on(table.accountId),
-  ],
-);
+export const cannedResponses = pgTable("canned_responses", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull(),
+  shortCode: varchar("short_code", { length: 255 }),
+  content: text("content"),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
 
 export type CannedResponse = typeof cannedResponses.$inferSelect;

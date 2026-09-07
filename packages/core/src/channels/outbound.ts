@@ -197,7 +197,10 @@ export function registerChannelSendJob(): void {
       await db.update(messages).set(patch).where(eq(messages.id, msg.id));
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      const attrs = { ...msg.contentAttributes, channel_error: reason };
+      const attrs = {
+        ...((msg.contentAttributes ?? {}) as Record<string, unknown>),
+        channel_error: reason,
+      };
       await db
         .update(messages)
         .set({ status: 3, contentAttributes: attrs })

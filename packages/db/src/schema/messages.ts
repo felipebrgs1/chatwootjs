@@ -1,99 +1,43 @@
 import {
+  bigint,
+  bigserial,
   boolean,
-  real,
-  index,
+  doublePrecision,
   integer,
+  json,
   jsonb,
-  pgTable,
   serial,
   text,
   timestamp,
   varchar,
+  pgTable,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-import { accounts } from "./auth";
-import { contacts } from "./contacts";
-import { conversations } from "./conversations";
-import { inboxes } from "./inboxes";
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
-// Mensagens + anexos + CSAT — espelha chatwoot/db/schema.rb.
-// message_type: 0 incoming, 1 outgoing, 2 activity, 3 template.
-// content_type: 0 text, 1 input_text? (ver Messages::MessageBuilder — aqui:
-//   0 text, 1 input_text, 2 input_textarea, 3 input_email, 4 input_select,
-//   5 cards, 6 form, 7 article, 8 incoming_email, 9 input_csat).
-// status: 0 sent, 1 delivered, 2 read, 3 failed.
-
-export const messages = pgTable(
-  "messages",
-  {
-    id: serial("id").primaryKey(),
-    content: text("content"),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    inboxId: integer("inbox_id")
-      .notNull()
-      .references(() => inboxes.id, { onDelete: "cascade" }),
-    conversationId: integer("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    messageType: integer("message_type").notNull(),
-    private: boolean("private").notNull().default(false),
-    status: integer("status").notNull().default(0),
-    sourceId: text("source_id"),
-    contentType: integer("content_type").notNull().default(0),
-    contentAttributes: jsonb("content_attributes")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
-    senderType: varchar("sender_type", { length: 255 }),
-    senderId: integer("sender_id"),
-    externalSourceIds: jsonb("external_source_ids")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
-    additionalAttributes: jsonb("additional_attributes")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default({}),
-    processedMessageContent: text("processed_message_content"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("index_messages_on_conversation_id").on(table.conversationId),
-    index("index_messages_on_conversation_account_type_created").on(
-      table.conversationId,
-      table.accountId,
-      table.messageType,
-      table.createdAt,
-    ),
-    index("index_messages_on_account_id_and_inbox_id").on(table.accountId, table.inboxId),
-    index("index_messages_on_sender_type_and_sender_id").on(table.senderType, table.senderId),
-    index("index_messages_on_source_id").on(table.sourceId),
-  ],
-);
-
-/** file_type: 0 image, 1 audio, 2 video, 3 file. */
 export const attachments = pgTable(
   "attachments",
   {
     id: serial("id").primaryKey(),
-    fileType: integer("file_type").notNull().default(0),
-    externalUrl: varchar("external_url", { length: 1024 }),
-    coordinatesLat: real("coordinates_lat").notNull().default(0),
-    coordinatesLong: real("coordinates_long").notNull().default(0),
-    messageId: integer("message_id")
+    fileType: integer("file_type").default(0),
+    externalUrl: varchar("external_url", { length: 255 }),
+    coordinatesLat: doublePrecision("coordinates_lat").default(0.0),
+    coordinatesLong: doublePrecision("coordinates_long").default(0.0),
+    messageId: integer("message_id").notNull(),
+    accountId: integer("account_id").notNull(),
+    createdAt: timestamp("created_at")
       .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    accountId: integer("account_id")
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
       .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    fallbackTitle: varchar("fallback_title", { length: 1024 }),
-    extension: varchar("extension", { length: 64 }),
-    meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+      .$defaultFn(() => new Date()),
+    fallbackTitle: varchar("fallback_title", { length: 255 }),
+    extension: varchar("extension", { length: 255 }),
+    meta: jsonb("meta").default({}),
   },
   (table) => [
     index("index_attachments_on_account_id").on(table.accountId),
@@ -104,32 +48,100 @@ export const attachments = pgTable(
 export const csatSurveyResponses = pgTable(
   "csat_survey_responses",
   {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    conversationId: integer("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    messageId: integer("message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    conversationId: bigint("conversation_id", { mode: "number" }).notNull(),
+    messageId: bigint("message_id", { mode: "number" }).notNull(),
     rating: integer("rating").notNull(),
     feedbackMessage: text("feedback_message"),
-    contactId: integer("contact_id")
+    contactId: bigint("contact_id", { mode: "number" }).notNull(),
+    assignedAgentId: bigint("assigned_agent_id", { mode: "number" }),
+    createdAt: timestamp("created_at")
       .notNull()
-      .references(() => contacts.id, { onDelete: "cascade" }),
-    assignedAgentId: integer("assigned_agent_id"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    csatReviewNotes: text("csat_review_notes"),
+    reviewNotesUpdatedAt: timestamp("review_notes_updated_at"),
+    reviewNotesUpdatedById: bigint("review_notes_updated_by_id", { mode: "number" }),
   },
   (table) => [
     index("index_csat_survey_responses_on_account_id").on(table.accountId),
+    index("index_csat_survey_responses_on_assigned_agent_id").on(table.assignedAgentId),
+    index("index_csat_survey_responses_on_contact_id").on(table.contactId),
     index("index_csat_survey_responses_on_conversation_id").on(table.conversationId),
-    index("index_csat_survey_responses_on_message_id").on(table.messageId),
+    uniqueIndex("index_csat_survey_responses_on_message_id").on(table.messageId),
+    index("index_csat_survey_responses_on_review_notes_updated_by_id").on(
+      table.reviewNotesUpdatedById,
+    ),
   ],
 );
 
-export type Message = typeof messages.$inferSelect;
+export const messages = pgTable(
+  "messages",
+  {
+    id: serial("id").primaryKey(),
+    content: text("content"),
+    accountId: integer("account_id").notNull(),
+    inboxId: integer("inbox_id").notNull(),
+    conversationId: integer("conversation_id").notNull(),
+    messageType: integer("message_type").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    private: boolean("private").notNull().default(false),
+    status: integer("status").default(0),
+    sourceId: text("source_id"),
+    contentType: integer("content_type").notNull().default(0),
+    contentAttributes: json("content_attributes").default({}),
+    senderType: varchar("sender_type", { length: 255 }),
+    senderId: bigint("sender_id", { mode: "number" }),
+    externalSourceIds: jsonb("external_source_ids").default({}),
+    additionalAttributes: jsonb("additional_attributes").default({}),
+    processedMessageContent: text("processed_message_content"),
+    sentiment: jsonb("sentiment").default({}),
+  },
+  (table) => [
+    index("index_messages_on_additional_attributes_campaign_id").using(
+      "gin",
+      sql`((additional_attributes -> 'campaign_id'::text))`,
+    ),
+    index("idx_messages_account_content_created").on(
+      table.accountId,
+      table.contentType,
+      table.createdAt,
+    ),
+    index("index_messages_on_account_created_type").on(
+      table.accountId,
+      table.createdAt,
+      table.messageType,
+    ),
+    index("index_messages_on_account_id_and_inbox_id").on(table.accountId, table.inboxId),
+    index("index_messages_on_account_id").on(table.accountId),
+    index("index_messages_on_content").using("gin", sql`"content" gin_trgm_ops`),
+    index("index_messages_on_conversation_account_type_created").on(
+      table.conversationId,
+      table.accountId,
+      table.messageType,
+      table.createdAt,
+    ),
+    index("index_messages_on_conversation_id").on(table.conversationId),
+    index("index_messages_on_created_at").on(table.createdAt),
+    index("index_messages_on_inbox_id").on(table.inboxId),
+    index("index_messages_on_sender_and_created").on(
+      table.senderType,
+      table.senderId,
+      table.createdAt,
+    ),
+    index("index_messages_on_sender_type_and_sender_id").on(table.senderType, table.senderId),
+    index("index_messages_on_source_id").on(table.sourceId),
+  ],
+);
+
 export type Attachment = typeof attachments.$inferSelect;
 export type CsatSurveyResponse = typeof csatSurveyResponses.$inferSelect;
+export type Message = typeof messages.$inferSelect;

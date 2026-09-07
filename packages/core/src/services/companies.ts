@@ -57,8 +57,8 @@ function toApiCompany(row: Company, contactsCount: number): ApiCompany {
     domain: row.domain,
     description: row.description,
     contacts_count: contactsCount,
-    additional_attributes: row.additionalAttributes ?? {},
-    custom_attributes: row.customAttributes ?? {},
+    additional_attributes: (row.additionalAttributes ?? {}) as Record<string, unknown>,
+    custom_attributes: (row.customAttributes ?? {}) as Record<string, unknown>,
     last_activity_at: row.lastActivityAt?.toISOString() ?? null,
     created_at: row.createdAt.toISOString(),
   };
@@ -230,7 +230,7 @@ export async function listCompanyContacts(
   return {
     data: rows.map((r) => ({
       id: r.id,
-      name: r.name,
+      name: r.name ?? "",
       email: r.email,
       phone_number: r.phoneNumber,
     })),
@@ -265,7 +265,12 @@ export async function addCompanyContact(
       phoneNumber: contacts.phoneNumber,
     });
   if (!fresh) throw new NotFoundError("Contact not found");
-  return { id: fresh.id, name: fresh.name, email: fresh.email, phone_number: fresh.phoneNumber };
+  return {
+    id: fresh.id,
+    name: fresh.name ?? "",
+    email: fresh.email,
+    phone_number: fresh.phoneNumber,
+  };
 }
 
 /** Desvincula o contato da empresa (sem apagar o contato). */

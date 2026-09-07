@@ -27,7 +27,7 @@ function toApi(row: typeof webhooks.$inferSelect): ApiWebhook {
     name: row.name,
     url: row.url,
     inbox_id: row.inboxId,
-    subscriptions: row.subscriptions,
+    subscriptions: (row.subscriptions ?? []) as string[],
   };
 }
 
@@ -159,7 +159,7 @@ export async function fireWebhooks(
   });
   const targets = rows.filter(
     (w) =>
-      w.subscriptions.includes(event) &&
+      ((w.subscriptions ?? []) as string[]).includes(event) &&
       (w.inboxId === null || w.inboxId === undefined || w.inboxId === inboxId),
   );
   for (const target of targets) {

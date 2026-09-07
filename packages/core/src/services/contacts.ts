@@ -49,15 +49,15 @@ export async function validateCustomAttributes(
   for (const [key, value] of Object.entries(attrs)) {
     const def = definitions.find((d) => d.attributeKey === key);
     if (!def) continue; // chave desconhecida: aceita como jsonb solto (Rails aceita)
-    const type = ATTRIBUTE_TYPES[def.attributeDisplayType] ?? "text";
+    const type = ATTRIBUTE_TYPES[def.attributeDisplayType ?? 0] ?? "text";
     if (type === "number" && typeof value !== "number" && !/^-?\d+(\.\d+)?$/.test(String(value))) {
       errors[key] = ["deve ser um número"];
     } else if (type === "link" && !/^https?:\/\//.test(String(value))) {
       errors[key] = ["deve ser uma URL"];
     } else if (type === "date" && Number.isNaN(Date.parse(String(value)))) {
       errors[key] = ["deve ser uma data válida"];
-    } else if (type === "list" && def.attributeValues.length > 0) {
-      const allowed = def.attributeValues.map(String);
+    } else if (type === "list" && (def.attributeValues as unknown[] | null)?.length) {
+      const allowed = ((def.attributeValues ?? []) as unknown[]).map(String);
       const values = Array.isArray(value) ? value.map(String) : String(value).split(",");
       const invalid = values.filter((v) => !allowed.includes(v));
       if (invalid.length > 0) errors[key] = [`valor(es) inválido(s): ${invalid.join(", ")}`];
@@ -82,9 +82,9 @@ function toApiLabel(row: typeof labels.$inferSelect): ApiLabel {
   return {
     id: row.id,
     title: row.title ?? "",
-    color: row.color,
+    color: row.color ?? "#1f93ff",
     description: row.description ?? null,
-    show_on_sidebar: row.showOnSidebar,
+    show_on_sidebar: row.showOnSidebar ?? false,
   };
 }
 
@@ -107,28 +107,29 @@ export interface ApiContact {
   last_activity_at: string | null;
   created_at: string;
   labels?: ApiLabel[];
-  contact_inboxes?: Array<{ id: number; inbox_id: number; source_id: string }>;
+  contact_inboxes?: Array<{ id: number; inbox_id: number | null; source_id: string | null }>;
+  // D2: inbox_id/source_id são NULLABLE no Rails.
 }
 
 function toApiContact(row: Contact): ApiContact {
   return {
     id: row.id,
-    name: row.name,
+    name: row.name ?? "",
     email: row.email,
     phone_number: row.phoneNumber,
     identifier: row.identifier,
-    location: row.location,
-    country_code: row.countryCode,
-    last_name: row.lastName,
-    middle_name: row.middleName,
-    blocked: row.blocked,
-    contact_type: row.contactType,
+    location: row.location ?? "",
+    country_code: row.countryCode ?? "",
+    last_name: row.lastName ?? "",
+    middle_name: row.middleName ?? "",
+    blocked: row.blocked ?? false,
+    contact_type: row.contactType ?? 0,
     company_id: row.companyId,
     company: null,
-    custom_attributes: row.customAttributes ?? {},
-    additional_attributes: row.additionalAttributes ?? {},
+    custom_attributes: (row.customAttributes ?? {}) as Record<string, unknown>,
+    additional_attributes: (row.additionalAttributes ?? {}) as Record<string, unknown>,
     last_activity_at: row.lastActivityAt?.toISOString() ?? null,
-    created_at: row.createdAt.toISOString(),
+    created_at: row.createdAt?.toISOString() ?? "",
   };
 }
 
@@ -164,13 +165,13 @@ export async function listContacts(
       .innerJoin(labels, eq(labels.id, taggings.tagId))
       .where(
         and(
-          eq(taggings.accountId, accountId),
+          eq(labels.accountId, accountId),
           eq(taggings.taggableType, "Contact"),
           eq(taggings.context, "labels"),
           inArray(labels.title, query.labels),
         ),
       );
-    const ids = tagRows.map((r) => r.taggableId);
+    const ids = tagRows.map((r) => r.taggableId).filter((x): x is number => x != null);
     if (ids.length === 0) {
       return {
         data: [],
@@ -369,10 +370,16 @@ export async function updateContact(
     if (Object.keys(errors).length > 0) {
       throw new UnprocessableError("Invalid custom attributes", errors);
     }
-    patch.customAttributes = { ...row.customAttributes, ...input.custom_attributes };
+    patch.customAttributes = {
+      ...((row.customAttributes ?? {}) as Record<string, unknown>),
+      ...input.custom_attributes,
+    };
   }
   if (input.additional_attributes !== undefined) {
-    patch.additionalAttributes = { ...row.additionalAttributes, ...input.additional_attributes };
+    patch.additionalAttributes = {
+      ...((row.additionalAttributes ?? {}) as Record<string, unknown>),
+      ...input.additional_attributes,
+    };
   }
 
   await db.update(contacts).set(patch).where(eq(contacts.id, contactId));
@@ -403,7 +410,7 @@ export async function createContactInbox(
   auth: AuthCtx,
   contactId: number,
   inboxId: number,
-): Promise<{ id: number; source_id: string; inbox_id: number }> {
+): Promise<{ id: number; source_id: string | null; inbox_id: number | null }> {
   const contact = await db.query.contacts.findFirst({
     where: (ct) => and(eq(ct.accountId, auth.accountId), eq(ct.id, contactId)),
   });
@@ -458,9 +465,13 @@ export async function mergeContacts(
       where: (ci) => eq(ci.contactId, childId),
     });
     for (const ci of childInboxes) {
-      const clash = await tx.query.contactInboxes.findFirst({
-        where: (x) => and(eq(x.inboxId, ci.inboxId), eq(x.contactId, baseId)),
-      });
+      const ciInboxId = ci.inboxId;
+      const clash =
+        ciInboxId == null
+          ? null
+          : await tx.query.contactInboxes.findFirst({
+              where: (x) => and(eq(x.inboxId, ciInboxId), eq(x.contactId, baseId)),
+            });
       if (!clash) {
         await tx
           .update(contactInboxes)
@@ -483,8 +494,14 @@ export async function mergeContacts(
         name: base.name || child.name,
         email: base.email ?? child.email,
         phoneNumber: base.phoneNumber ?? child.phoneNumber,
-        customAttributes: { ...child.customAttributes, ...base.customAttributes },
-        additionalAttributes: { ...child.additionalAttributes, ...base.additionalAttributes },
+        customAttributes: {
+          ...((child.customAttributes ?? {}) as Record<string, unknown>),
+          ...((base.customAttributes ?? {}) as Record<string, unknown>),
+        },
+        additionalAttributes: {
+          ...((child.additionalAttributes ?? {}) as Record<string, unknown>),
+          ...((base.additionalAttributes ?? {}) as Record<string, unknown>),
+        },
         lastActivityAt: base.lastActivityAt ?? child.lastActivityAt,
         updatedAt: new Date(),
       })
@@ -654,13 +671,14 @@ function toApiCustomAttribute(
 ): ApiCustomAttribute {
   return {
     id: row.id,
-    attribute_model: row.attributeModel,
-    attribute_key: row.attributeKey,
-    attribute_display_name: row.attributeDisplayName,
+    attribute_model: row.attributeModel ?? 0,
+    attribute_key: row.attributeKey ?? "",
+    attribute_display_name: row.attributeDisplayName ?? "",
     attribute_description: row.attributeDescription,
-    attribute_display_type: row.attributeDisplayType,
-    default_value: row.defaultValue,
-    attribute_values: row.attributeValues ?? [],
+    attribute_display_type: row.attributeDisplayType ?? 0,
+    // Rails: default_value é integer; a API expõe string.
+    default_value: row.defaultValue?.toString() ?? null,
+    attribute_values: (row.attributeValues ?? []) as unknown[],
     regex_pattern: row.regexPattern,
     regex_cue: row.regexCue,
   };
@@ -691,7 +709,7 @@ export async function createCustomAttribute(
       attributeDisplayName: input.attribute_display_name,
       attributeDescription: input.attribute_description,
       attributeDisplayType: input.attribute_display_type,
-      defaultValue: input.default_value,
+      defaultValue: input.default_value === undefined ? undefined : Number(input.default_value),
       attributeValues: input.attribute_values ?? [],
       regexPattern: input.regex_pattern,
       regexCue: input.regex_cue,
@@ -722,7 +740,7 @@ export async function updateCustomAttribute(
     update.attributeDescription = patch.attribute_description;
   if (patch.attribute_display_type !== undefined)
     update.attributeDisplayType = patch.attribute_display_type;
-  if (patch.default_value !== undefined) update.defaultValue = patch.default_value;
+  if (patch.default_value !== undefined) update.defaultValue = Number(patch.default_value);
   if (patch.attribute_values !== undefined) update.attributeValues = patch.attribute_values;
   if (patch.regex_pattern !== undefined) update.regexPattern = patch.regex_pattern;
   if (patch.regex_cue !== undefined) update.regexCue = patch.regex_cue;
@@ -1012,7 +1030,8 @@ export async function listContactAttachments(
     .limit(100);
   return rows.map((r) => ({
     id: r.attachment.id,
-    file_type: ATTACHMENT_TYPES[r.attachment.fileType] ?? "file",
+    file_type:
+      r.attachment.fileType == null ? "file" : (ATTACHMENT_TYPES[r.attachment.fileType] ?? "file"),
     external_url: r.attachment.externalUrl,
     fallback_title: r.attachment.fallbackTitle,
     extension: r.attachment.extension,
@@ -1031,7 +1050,7 @@ export async function listContactLabels(accountId: number, contactId: number): P
     .innerJoin(labels, eq(labels.id, taggings.tagId))
     .where(
       and(
-        eq(taggings.accountId, accountId),
+        eq(labels.accountId, accountId),
         eq(taggings.taggableType, "Contact"),
         eq(taggings.taggableId, contactId),
         eq(taggings.context, "labels"),
@@ -1062,14 +1081,22 @@ export async function setContactLabels(
     }
     labelIds.push(label.id);
   }
+  // Sem account_id em taggings (Rails): apaga só vínculos com labels desta conta.
+  const ownedTagIds = (
+    await db.query.labels.findMany({
+      where: (l) => eq(l.accountId, accountId),
+      columns: { id: true },
+    })
+  ).map((l) => l.id);
   await db.transaction(async (tx) => {
     await tx
       .delete(taggings)
       .where(
         and(
-          eq(taggings.accountId, accountId),
           eq(taggings.taggableType, "Contact"),
           eq(taggings.taggableId, contactId),
+          eq(taggings.context, "labels"),
+          ownedTagIds.length > 0 ? inArray(taggings.tagId, ownedTagIds) : undefined,
         ),
       );
     if (labelIds.length > 0) {
@@ -1078,7 +1105,6 @@ export async function setContactLabels(
           tagId,
           taggableType: "Contact",
           taggableId: contactId,
-          accountId,
           context: "labels",
         })),
       );

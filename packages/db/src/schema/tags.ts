@@ -1,8 +1,8 @@
-import { integer, pgTable, serial, unique, varchar } from "drizzle-orm/pg-core";
+import { integer, serial, varchar, pgTable, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-// D1 — `tags` (acts-as-taggable). O Rails tem `labels` + `tags` + `taggings`;
-// aqui já existiam `labels` e `taggings` — faltava só `tags`. PK serial,
-// como no `schema.rb`. O índice trigram em lower(name) vai em D2.
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
 export const tags = pgTable(
   "tags",
@@ -11,8 +11,10 @@ export const tags = pgTable(
     name: varchar("name", { length: 255 }),
     taggingsCount: integer("taggings_count").default(0),
   },
-  // Índice trigram em lower(name) (gin) — D2.
-  (table) => [unique("index_tags_on_name").on(table.name)],
+  (table) => [
+    index("tags_name_trgm_idx").using("gin", sql`lower((name)::text) gin_trgm_ops`),
+    uniqueIndex("index_tags_on_name").on(table.name),
+  ],
 );
 
 export type Tag = typeof tags.$inferSelect;

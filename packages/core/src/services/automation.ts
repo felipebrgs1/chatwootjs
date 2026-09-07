@@ -48,14 +48,14 @@ export interface RuleCondition {
 function toApi(row: AutomationRule): ApiAutomationRule {
   return {
     id: row.id,
-    name: row.name,
+    name: row.name ?? "",
     description: row.description,
-    event_name: row.eventName,
-    conditions: row.conditions,
-    actions: row.actions,
-    active: row.active,
+    event_name: (row.eventName ?? "") as ApiAutomationRule["event_name"],
+    conditions: (row.conditions ?? []) as RuleCondition[],
+    actions: (row.actions ?? []) as ActionItem[],
+    active: row.active ?? true,
     execution_delay: row.executionDelay,
-    created_at: row.createdAt.toISOString(),
+    created_at: row.createdAt?.toISOString() ?? "",
   };
 }
 
@@ -81,7 +81,7 @@ async function customAttributeKeys(accountId: number): Promise<Set<string>> {
     where: (d) => eq(d.accountId, accountId),
     columns: { attributeKey: true },
   });
-  return new Set(defs.map((d) => d.attributeKey));
+  return new Set(defs.map((d) => d.attributeKey).filter((x): x is string => x != null));
 }
 
 /** Validação espelhando o model do Rails (json_conditions_format et al). */
@@ -183,9 +183,9 @@ export async function updateAutomationRule(
   requireAdmin(auth);
   const rule = await findAutomationRule(accountId, id);
   const next = {
-    event_name: input.event_name ?? (rule.eventName as ApiAutomationRule["event_name"]),
-    conditions: input.conditions ?? rule.conditions,
-    actions: input.actions ?? rule.actions,
+    event_name: input.event_name ?? ((rule.eventName ?? "") as ApiAutomationRule["event_name"]),
+    conditions: (input.conditions ?? rule.conditions ?? []) as RuleCondition[],
+    actions: (input.actions ?? rule.actions ?? []) as ActionItem[],
     execution_delay:
       input.execution_delay !== undefined ? input.execution_delay : rule.executionDelay,
   };
@@ -244,8 +244,8 @@ export async function cloneAutomationRule(
       name: rule.name,
       description: rule.description,
       eventName: rule.eventName,
-      conditions: rule.conditions,
-      actions: rule.actions,
+      conditions: (rule.conditions ?? []) as RuleCondition[],
+      actions: (rule.actions ?? []) as ActionItem[],
       active: rule.active,
       executionDelay: rule.executionDelay,
     })
@@ -298,7 +298,7 @@ async function loadFacts(ctx: RuleContext): Promise<FactBag | null> {
       where: (l, { inArray }) =>
         inArray(
           l.id,
-          tagRows.map((t) => t.tagId),
+          tagRows.map((t) => t.tagId).filter((x): x is number => x != null),
         ),
       columns: { title: true },
     });
@@ -315,7 +315,19 @@ async function loadFacts(ctx: RuleContext): Promise<FactBag | null> {
         },
       })
     : null;
-  return { conversation, message, labels, contact };
+  return {
+    conversation,
+    message,
+    labels,
+    contact: contact
+      ? {
+          email: contact.email,
+          phoneNumber: contact.phoneNumber,
+          additionalAttributes: (contact.additionalAttributes ?? {}) as Record<string, unknown>,
+          customAttributes: (contact.customAttributes ?? {}) as Record<string, unknown>,
+        }
+      : null,
+  };
 }
 
 function attributeValue(bag: FactBag, key: string): unknown {
@@ -443,7 +455,7 @@ export async function executeRuleOn(
   if (!rule.active) return "skipped";
   const bag = await loadFacts(ctx);
   if (!bag) return "skipped";
-  if (!matchesConditions(bag, rule.conditions)) return "skipped";
+  if (!matchesConditions(bag, (rule.conditions ?? []) as RuleCondition[])) return "skipped";
 
   // Regra com delay em evento de conversa → arma execução futura.
   if (rule.executionDelay != null && rule.eventName !== "message_created") {
@@ -494,10 +506,15 @@ export async function executeRuleOn(
   if (running.has(key)) return "skipped";
   running.add(key);
   try {
-    await applyActionItems(rule.accountId, bag.conversation.id, rule.actions, {
-      actorName: `Automação ${rule.name}`,
-      event: rule.eventName,
-    });
+    await applyActionItems(
+      rule.accountId,
+      bag.conversation.id,
+      (rule.actions ?? []) as ActionItem[],
+      {
+        actorName: `Automação ${rule.name}`,
+        event: rule.eventName,
+      },
+    );
     return "executed";
   } finally {
     running.delete(key);
@@ -556,14 +573,19 @@ export async function processDueExecutions(): Promise<number> {
         await finish(4, "conversation gone");
         continue;
       }
-      if (!matchesConditions(bag, rule.conditions)) {
+      if (!matchesConditions(bag, (rule.conditions ?? []) as RuleCondition[])) {
         await finish(4, "conditions no longer match");
         continue;
       }
-      await applyActionItems(rule.accountId, pending.conversationId, rule.actions, {
-        actorName: `Automação ${rule.name}`,
-        event: rule.eventName,
-      });
+      await applyActionItems(
+        rule.accountId,
+        pending.conversationId,
+        (rule.actions ?? []) as ActionItem[],
+        {
+          actorName: `Automação ${rule.name}`,
+          event: rule.eventName,
+        },
+      );
       await finish(2);
       done += 1;
     } catch (err) {

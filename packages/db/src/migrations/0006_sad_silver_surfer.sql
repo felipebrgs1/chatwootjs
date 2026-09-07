@@ -1,1 +1,0 @@
-ALTER TABLE "campaigns" ADD COLUMN "enabled" boolean DEFAULT true NOT NULL;

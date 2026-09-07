@@ -1,115 +1,35 @@
-/**
- * M11 — Notificações, presença (linhas de configuração; o estado online é
- * efêmero no servidor), inscrições push e filtros salvos (views).
- * Espelha `notification`, `notification_setting`, `notification_subscription`
- * e `custom_filter` do `chatwoot/db/schema.rb`.
- *
- * notification_type: 0 assigned_conversation, 1 conversation_mention,
- *   2 participating_conversation_new_message.
- * subscription_type: 0 browser_push.
- * visibility (custom_filters): 0 personal, 1 shared.
- */
 import {
-  index,
+  bigint,
+  bigserial,
   integer,
   jsonb,
-  pgTable,
-  serial,
   text,
   timestamp,
   varchar,
+  pgTable,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-import { accounts, users } from "./auth";
-
-export const notifications = pgTable(
-  "notifications",
-  {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    notificableType: varchar("notificable_type", { length: 255 }),
-    notificableId: integer("notificable_id"),
-    notificationType: integer("notification_type").notNull().default(0),
-    readAt: timestamp("read_at", { withTimezone: true }),
-    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("index_notifications_on_user_id_and_read_at").on(table.userId, table.readAt),
-    index("index_notifications_on_account_id").on(table.accountId),
-    index("index_notifications_on_notificable").on(table.notificableType, table.notificableId),
-  ],
-);
-
-export const notificationSettings = pgTable(
-  "notification_settings",
-  {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    // Tipos com e-mail/push LIGADOS (ausente = tudo ligado, igual ao Rails).
-    emailFlags: jsonb("email_flags").$type<string[]>().notNull().default([]),
-    pushFlags: jsonb("push_flags").$type<string[]>().notNull().default([]),
-    // Tipos com notificação in-app DESLIGADA (sino). Vazio = tudo ligado.
-    mutedFlags: jsonb("muted_flags").$type<string[]>().notNull().default([]),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("index_notification_settings_on_account_id_and_user_id").on(
-      table.accountId,
-      table.userId,
-    ),
-  ],
-);
-
-export const notificationSubscriptions = pgTable(
-  "notification_subscriptions",
-  {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    identifier: text("identifier").notNull(),
-    subscriptionType: integer("subscription_type").notNull().default(0),
-    subscribedAt: timestamp("subscribed_at", { withTimezone: true }).notNull().defaultNow(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("index_notification_subscriptions_on_user_id").on(table.userId),
-    index("index_notification_subscriptions_on_identifier").on(table.identifier),
-  ],
-);
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
 export const customFilters = pgTable(
   "custom_filters",
   {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    id: bigserial("id", { mode: "number" }).primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
-    // 'conversation' no MVP (mesma query serializada da lista M4).
-    modelType: varchar("model_type", { length: 50 }).notNull().default("conversation"),
-    query: jsonb("query").$type<Record<string, unknown>>().notNull().default({}),
-    visibility: integer("visibility").notNull().default(0),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    filterType: integer("filter_type").notNull().default(0),
+    query: jsonb("query").notNull().default("{}"),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [
     index("index_custom_filters_on_account_id").on(table.accountId),
@@ -117,7 +37,89 @@ export const customFilters = pgTable(
   ],
 );
 
-export type Notification = typeof notifications.$inferSelect;
+export const notificationSettings = pgTable(
+  "notification_settings",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: integer("account_id"),
+    userId: integer("user_id"),
+    emailFlags: integer("email_flags").notNull().default(0),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    pushFlags: integer("push_flags").notNull().default(0),
+  },
+  (table) => [uniqueIndex("by_account_user").on(table.accountId, table.userId)],
+);
+
+export const notificationSubscriptions = pgTable(
+  "notification_subscriptions",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    subscriptionType: integer("subscription_type").notNull(),
+    subscriptionAttributes: jsonb("subscription_attributes").notNull().default({}),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    identifier: text("identifier"),
+  },
+  (table) => [
+    uniqueIndex("index_notification_subscriptions_on_identifier").on(table.identifier),
+    index("index_notification_subscriptions_on_user_id").on(table.userId),
+  ],
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    notificationType: integer("notification_type").notNull(),
+    primaryActorType: varchar("primary_actor_type", { length: 255 }).notNull(),
+    primaryActorId: bigint("primary_actor_id", { mode: "number" }).notNull(),
+    secondaryActorType: varchar("secondary_actor_type", { length: 255 }),
+    secondaryActorId: bigint("secondary_actor_id", { mode: "number" }),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    snoozedUntil: timestamp("snoozed_until"),
+    lastActivityAt: timestamp("last_activity_at").default(sql`CURRENT_TIMESTAMP`),
+    meta: jsonb("meta").default({}),
+  },
+  (table) => [
+    index("index_notifications_on_account_id").on(table.accountId),
+    index("index_notifications_on_last_activity_at").on(table.lastActivityAt),
+    index("uniq_primary_actor_per_account_notifications").on(
+      table.primaryActorType,
+      table.primaryActorId,
+    ),
+    index("uniq_secondary_actor_per_account_notifications").on(
+      table.secondaryActorType,
+      table.secondaryActorId,
+    ),
+    index("idx_notifications_performance").on(
+      table.userId,
+      table.accountId,
+      table.snoozedUntil,
+      table.readAt,
+    ),
+    index("index_notifications_on_user_id").on(table.userId),
+  ],
+);
+
+export type CustomFilter = typeof customFilters.$inferSelect;
 export type NotificationSetting = typeof notificationSettings.$inferSelect;
 export type NotificationSubscription = typeof notificationSubscriptions.$inferSelect;
-export type CustomFilter = typeof customFilters.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;

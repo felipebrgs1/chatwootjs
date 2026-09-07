@@ -1,48 +1,16 @@
 import {
   bigserial,
-  index,
   integer,
   jsonb,
-  pgTable,
-  serial,
   text,
   timestamp,
-  unique,
   varchar,
+  pgTable,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { accounts } from "./auth";
-import { inboxes } from "./inboxes";
-
-// Webhooks de saída — espelha `webhooks` do schema.rb.
-// webhook_type: 0 account_type, 1 inbox_type.
-// subscriptions: ex. ["conversation_created","message_created",...]
-
-export const webhooks = pgTable(
-  "webhooks",
-  {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    inboxId: integer("inbox_id").references(() => inboxes.id, { onDelete: "cascade" }),
-    url: text("url"),
-    webhookType: integer("webhook_type").notNull().default(0),
-    subscriptions: jsonb("subscriptions").$type<string[]>().notNull().default([]),
-    name: varchar("name", { length: 255 }),
-    secret: varchar("secret", { length: 255 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    unique("index_webhooks_on_account_id_and_url").on(table.accountId, table.url),
-    index("index_webhooks_on_account_id").on(table.accountId),
-  ],
-);
-
-// D1 — integrações por inbox/conta (Slack, Linear…). Espelha
-// `integrations_hooks` do `chatwoot/db/schema.rb` (integers aqui, sem
-// índices no Rails). Sem FKs em D1 (D2 alinha).
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
 export const integrationsHooks = pgTable("integrations_hooks", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -53,10 +21,44 @@ export const integrationsHooks = pgTable("integrations_hooks", {
   hookType: integer("hook_type").default(0),
   referenceId: varchar("reference_id", { length: 255 }),
   accessToken: varchar("access_token", { length: 255 }),
-  createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
-  settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date()),
+  settings: jsonb("settings").default({}),
 });
 
-export type Webhook = typeof webhooks.$inferSelect;
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: integer("account_id"),
+    inboxId: integer("inbox_id"),
+    url: text("url"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    webhookType: integer("webhook_type").default(0),
+    subscriptions: jsonb("subscriptions").default([
+      "conversation_status_changed",
+      "conversation_updated",
+      "conversation_created",
+      "contact_created",
+      "contact_updated",
+      "message_created",
+      "message_updated",
+      "webwidget_triggered",
+    ]),
+    name: varchar("name", { length: 255 }),
+    secret: varchar("secret", { length: 255 }),
+  },
+  (table) => [uniqueIndex("index_webhooks_on_account_id_and_url").on(table.accountId, table.url)],
+);
+
 export type IntegrationsHook = typeof integrationsHooks.$inferSelect;
+export type Webhook = typeof webhooks.$inferSelect;

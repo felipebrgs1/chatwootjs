@@ -1,27 +1,33 @@
-import { index, integer, jsonb, pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  bigserial,
+  integer,
+  jsonb,
+  timestamp,
+  varchar,
+  pgTable,
+  index,
+} from "drizzle-orm/pg-core";
 
-import { accounts, users } from "./auth";
-
-// Macros de 1 clique — espelha `macros` do schema.rb.
-// visibility: 0 personal, 1 global. actions: [{ action_name, action_params }]
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
 export const macros = pgTable(
   "macros",
   {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
-    visibility: integer("visibility").notNull().default(0),
-    createdById: integer("created_by_id").references(() => users.id, { onDelete: "set null" }),
-    updatedById: integer("updated_by_id").references(() => users.id, { onDelete: "set null" }),
-    actions: jsonb("actions")
-      .$type<Array<{ action_name: string; action_params: unknown[] }>>()
+    visibility: integer("visibility").default(0),
+    createdById: bigint("created_by_id", { mode: "number" }),
+    updatedById: bigint("updated_by_id", { mode: "number" }),
+    actions: jsonb("actions").notNull().default({}),
+    createdAt: timestamp("created_at")
       .notNull()
-      .default([]),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
   },
   (table) => [index("index_macros_on_account_id").on(table.accountId)],
 );

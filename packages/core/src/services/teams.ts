@@ -10,7 +10,7 @@ import { logAudit } from "./audit.js";
 export interface ApiTeamMember {
   id: number;
   name: string;
-  email: string;
+  email: string | null;
 }
 
 export interface ApiTeam {
@@ -28,7 +28,7 @@ async function membersOf(teamId: number): Promise<ApiTeamMember[]> {
     .from(teamMembers)
     .innerJoin(users, eq(users.id, teamMembers.userId))
     .where(eq(teamMembers.teamId, teamId));
-  return rows.map((r) => ({ id: r.user.id, name: r.user.name, email: r.user.email }));
+  return rows.map((r) => ({ id: r.user.id, name: r.user.name ?? "", email: r.user.email }));
 }
 
 export async function toApiTeam(
@@ -40,7 +40,7 @@ export async function toApiTeam(
     id: row.id,
     name: row.name,
     description: row.description,
-    allow_auto_assign: row.allowAutoAssign,
+    allow_auto_assign: row.allowAutoAssign ?? true,
     members,
   };
   if (withCount) {

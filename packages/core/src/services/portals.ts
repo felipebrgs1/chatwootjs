@@ -42,23 +42,23 @@ export interface ApiArticle {
 function toApiPortal(row: typeof portals.$inferSelect): ApiPortal {
   return {
     id: row.id,
-    name: row.name,
-    slug: row.slug,
+    name: row.name ?? "",
+    slug: row.slug ?? "",
     color: row.color,
     page_title: row.pageTitle,
     header_text: row.headerText,
     homepage_link: row.homepageLink,
-    archived: row.archived,
+    archived: row.archived ?? false,
   };
 }
 
 function toApiCategory(row: typeof categories.$inferSelect): ApiCategory {
   return {
     id: row.id,
-    name: row.name,
-    slug: row.slug,
+    name: row.name ?? "",
+    slug: row.slug ?? "",
     description: row.description,
-    locale: row.locale,
+    locale: row.locale ?? "en",
     position: row.position,
   };
 }
@@ -72,8 +72,8 @@ function toApiArticle(row: typeof articles.$inferSelect): ApiArticle {
     content: row.content,
     status: row.status === 1 ? "published" : "draft",
     category_id: row.categoryId,
-    views: row.views,
-    locale: row.locale,
+    views: row.views ?? 0,
+    locale: row.locale ?? "en",
   };
 }
 
@@ -556,9 +556,9 @@ export async function getPublicArticle(
     seenViews.set(seenKey, Date.now());
     await db
       .update(articles)
-      .set({ views: row.views + 1 })
+      .set({ views: (row.views ?? 0) + 1 })
       .where(eq(articles.id, row.id));
-    row.views += 1;
+    row.views = (row.views ?? 0) + 1;
   }
   const cat = row.categoryId
     ? await db.query.categories.findFirst({

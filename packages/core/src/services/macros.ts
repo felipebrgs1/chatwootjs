@@ -25,7 +25,7 @@ function toApi(row: typeof macros.$inferSelect): ApiMacro {
     id: row.id,
     name: row.name,
     visibility: row.visibility === 1 ? "global" : "personal",
-    actions: row.actions,
+    actions: (row.actions ?? []) as ActionItem[],
     created_by_id: row.createdById,
   };
 }
@@ -162,7 +162,7 @@ export function registerMacroJob(): void {
     });
     for (const conversationId of conversationIds) {
       try {
-        await applyActionItems(accountId, conversationId, macro.actions, {
+        await applyActionItems(accountId, conversationId, (macro.actions ?? []) as ActionItem[], {
           actorName: `Macro ${macro.name} (${actor?.name ?? "agente"})`,
         });
       } catch (err) {

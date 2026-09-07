@@ -42,7 +42,7 @@ async function findContactBySource(
     where: (t) => and(eq(t.inboxId, inboxId), eq(t.sourceId, inbound.contactSourceId)),
     columns: { contactId: true },
   });
-  if (ci) return { id: ci.contactId };
+  if (ci?.contactId) return { id: ci.contactId };
   // 2) e-mail/telefone iguais (mesma pessoa em outro canal).
   if (inbound.contactEmail) {
     const row = await db.query.contacts.findFirst({

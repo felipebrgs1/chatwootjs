@@ -1,18 +1,37 @@
 import {
   bigint,
   bigserial,
-  index,
   integer,
   jsonb,
-  pgTable,
   timestamp,
   varchar,
+  pgTable,
+  index,
 } from "drizzle-orm/pg-core";
 
-// D1 — Copilot (threads e mensagens). Espelha `chatwoot/db/schema.rb`.
-// Sem FKs em D1 (D2 alinha).
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
-const ts = (name: string) => timestamp(name, { withTimezone: false });
+export const copilotMessages = pgTable(
+  "copilot_messages",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    copilotThreadId: bigint("copilot_thread_id", { mode: "number" }).notNull(),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    message: jsonb("message").notNull().default({}),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    messageType: integer("message_type").default(0),
+  },
+  (table) => [
+    index("index_copilot_messages_on_account_id").on(table.accountId),
+    index("index_copilot_messages_on_copilot_thread_id").on(table.copilotThreadId),
+  ],
+);
 
 export const copilotThreads = pgTable(
   "copilot_threads",
@@ -21,8 +40,12 @@ export const copilotThreads = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     userId: bigint("user_id", { mode: "number" }).notNull(),
     accountId: bigint("account_id", { mode: "number" }).notNull(),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
     assistantId: integer("assistant_id"),
   },
   (table) => [
@@ -32,22 +55,5 @@ export const copilotThreads = pgTable(
   ],
 );
 
-export const copilotMessages = pgTable(
-  "copilot_messages",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    copilotThreadId: bigint("copilot_thread_id", { mode: "number" }).notNull(),
-    accountId: bigint("account_id", { mode: "number" }).notNull(),
-    message: jsonb("message").$type<Record<string, unknown>>().notNull().default({}),
-    createdAt: ts("created_at").notNull(),
-    updatedAt: ts("updated_at").notNull(),
-    messageType: integer("message_type").default(0),
-  },
-  (table) => [
-    index("index_copilot_messages_on_account_id").on(table.accountId),
-    index("index_copilot_messages_on_copilot_thread_id").on(table.copilotThreadId),
-  ],
-);
-
-export type CopilotThread = typeof copilotThreads.$inferSelect;
 export type CopilotMessage = typeof copilotMessages.$inferSelect;
+export type CopilotThread = typeof copilotThreads.$inferSelect;

@@ -1,59 +1,60 @@
 import {
+  bigint,
+  bigserial,
   boolean,
-  index,
-  integer,
-  pgTable,
-  serial,
   text,
   timestamp,
-  unique,
   varchar,
+  pgTable,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { accounts, users } from "./auth";
-
-// Teams — espelha chatwoot/db/schema.rb (tabelas `teams`, `team_members`).
-
-export const teams = pgTable(
-  "teams",
-  {
-    id: serial("id").primaryKey(),
-    accountId: integer("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    name: varchar("name", { length: 255 }).notNull(),
-    description: text("description"),
-    allowAutoAssign: boolean("allow_auto_assign").notNull().default(true),
-    icon: varchar("icon", { length: 255 }).notNull().default(""),
-    iconColor: varchar("icon_color", { length: 255 }).notNull().default(""),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    unique("index_teams_on_name_and_account_id").on(table.name, table.accountId),
-    index("index_teams_on_account_id").on(table.accountId),
-  ],
-);
+// Espelha chatwoot/db/schema.rb (pino docs/specs/CHATWOOT_PIN.md).
+// Tipos Rails são normativos; camelCase só no nome da chave TS.
 
 export const teamMembers = pgTable(
   "team_members",
   {
-    id: serial("id").primaryKey(),
-    teamId: integer("team_id")
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    teamId: bigint("team_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at")
       .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    userId: integer("user_id")
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+      .$defaultFn(() => new Date()),
   },
   (table) => [
-    unique("index_team_members_on_team_id_and_user_id").on(table.teamId, table.userId),
+    uniqueIndex("index_team_members_on_team_id_and_user_id").on(table.teamId, table.userId),
     index("index_team_members_on_team_id").on(table.teamId),
     index("index_team_members_on_user_id").on(table.userId),
   ],
 );
 
-export type Team = typeof teams.$inferSelect;
+export const teams = pgTable(
+  "teams",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    allowAutoAssign: boolean("allow_auto_assign").default(true),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    icon: varchar("icon", { length: 255 }).default(""),
+    iconColor: varchar("icon_color", { length: 255 }).default(""),
+  },
+  (table) => [
+    index("index_teams_on_account_id").on(table.accountId),
+    uniqueIndex("index_teams_on_name_and_account_id").on(table.name, table.accountId),
+  ],
+);
+
 export type TeamMember = typeof teamMembers.$inferSelect;
+export type Team = typeof teams.$inferSelect;

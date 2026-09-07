@@ -2,9 +2,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { sign, verify } from "hono/jwt";
 
 const ACCESS_TTL_SECONDS = 15 * 60;
-const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const RESET_TTL_MS = 2 * 60 * 60 * 1000;
+// TTLs de expiração dos tokens opacos (access_tokens não tem expires_at no Rails;
+// a expiração deriva de created_at + TTL — ver services/auth.ts).
+export const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const RESET_TTL_MS = 2 * 60 * 60 * 1000;
 
 let warnedFallback = false;
 

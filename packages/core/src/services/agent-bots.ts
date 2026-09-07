@@ -37,10 +37,10 @@ const BOT_TYPE_FROM_INT = ["webhook", "captain"] as const;
 function toApi(row: typeof agentBots.$inferSelect): ApiAgentBot {
   return {
     id: row.id,
-    name: row.name,
+    name: row.name ?? "",
     description: row.description,
     outgoing_url: row.outgoingUrl,
-    bot_type: BOT_TYPE_FROM_INT[row.botType] ?? "webhook",
+    bot_type: BOT_TYPE_FROM_INT[row.botType ?? 0] ?? "webhook",
     account_id: row.accountId,
   };
 }

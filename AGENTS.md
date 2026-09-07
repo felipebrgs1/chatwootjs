@@ -11,11 +11,14 @@ Recriar o **Chatwoot open-source 1:1** (comportamento, API e visual) com stack J
 ## Specs (obrigatório ler antes de codar)
 
 - `docs/SPEC_CHATWOOTJS.md` — visão, arquitetura, layout, princípios 1:1.
-- `docs/specs/000-indice.md` — progresso por módulo, **duas colunas**:
+- `docs/specs/000-indice.md` — progresso da **trilha D (compatibilidade de dump
+  bidirecional com o Chatwoot original)**, **duas colunas**:
   `Spec` (documento escrito) e `Impl` (código finalizado).
-- `docs/specs/M0..M12` — uma spec executável por módulo (DB + API + Front + Aceite).
-- Ordem: `M0 → M1 → (M2+M3) → M4 → M5 → M6 → (M7+M8+M9) → M10 → M11 → M12`.
-- **Ao terminar o código de um módulo** (aceite cumprido): marcar `Impl` como `[x] done` no índice.
+- `docs/specs/D0..D5` — uma spec executável por etapa (DB-first + scripts + aceite).
+- Roadmap v1 (`M0..M12`, app 1:1) arquivado em `docs/specs/_arquivo-v1/` —
+  **não é mais o plano vigente; não implementar Ms sem ordem explícita**.
+- Ordem: `D0 → D1 → D2 → (D3+D4) → D5`.
+- **Ao terminar o código de uma etapa** (aceite cumprido): marcar `Impl` como `[x] done` no índice.
 
 ## Layout do monorepo
 
@@ -33,7 +36,7 @@ shots/            # saída dos screenshots (ignorado pelo git)
 ## Convenções (não-negociáveis)
 
 1. **API 1:1 com o Rails**: mesmos paths/query/body (`/api/v1/...`), mesmos status (401/403/404/422), formato `{ data, meta }` e `{ error, attributes }`. Zod espelha os params do Rails.
-2. **Banco espelha `chatwoot/db/schema.rb`**: tabelas/colunas snake_case (`account_id`, não `accountId`); camelCase só na borda via mapper. Migrations via `drizzle-kit generate` + `db:migrate`. Nunca SQL cru fora de migration/seed.
+2. **Banco espelha `chatwoot/db/schema.rb` no pino de `docs/specs/CHATWOOT_PIN.md`**: tabelas/colunas snake_case (`account_id`, não `accountId`); camelCase só na borda via mapper. Tipos Rails são normativos (`datetime` = `timestamp` sem timezone, `bigint` ≠ `integer`, `uuid` com `gen_random_uuid()`). Migrations via `drizzle-kit generate` + `db:migrate`. Nunca SQL cru fora de migration/seed. **Nenhum drift de DDL sem registrar em `docs/specs/drift-permitido.md` (trilha D5).**
 3. **Sem tRPC no domínio** (`packages/api` congelado). Todo domínio é Hono REST + `zValidator`. Handlers finos → `services` no core.
 4. **Visual 1:1 com o Chatwoot v4** (`chatwoot/.github/screenshots/dashboard.png`): sidebar branca redimensionável + lista de conversas + thread + painel de detalhes. Sem rail escuro (era o v3). Validar com `bun scripts/shot.mjs` (API no :3000, web no :3001).
 5. **`.env` único na raiz** (front+back). Server/Drizzle carregam via `src/env.ts` (primeiro import). Nunca commitar `.env` (ver `.env.example`).

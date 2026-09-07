@@ -1,42 +1,62 @@
-# Specs por módulo — ChatwootJS
+# Specs — ChatwootJS (trilha D: compatibilidade de dump)
 
-Spec-mãe: `../SPEC_CHATWOOTJS.md` (visão, stack, layout, princípios 1:1).
-Esta pasta contém **uma spec executável por módulo**. Cada spec é auto-suficiente
-para um agente implementar em 1 PR.
+> **Objetivo atual (único): ser 100% compatível com o dump do Chatwoot original,
+> nos dois sentidos** — poder ser **alimentado** por dados do Chatwoot
+> (`pg_dump` do Rails restaura no nosso banco) e poder **alimentar** o Chatwoot
+> (nosso `pg_dump` restaura no Rails). Atualizações futuras do produto não podem
+> quebrar isso.
+>
+> Spec-mãe: `../SPEC_CHATWOOTJS.md`. Fonte da verdade: `./chatwoot/` (só leitura,
+> nunca editar) + `chatwoot/db/schema.rb` na versão pinada (ver D0).
+> O roadmap v1 (`M0–M12`, app completo 1:1) foi arquivado em `_arquivo-v1/`
+> e **não é mais o plano vigente**.
 
 ## Progresso
 
 `Spec` = documento escrito. `Impl` = código finalizado — só vira `[x] done`
-quando o módulo estiver implementado, testado e com o aceite da spec cumprido.
+quando o aceite da spec estiver cumprido (comandos da spec passando em CI/local).
 
-| Módulo | Spec                       | Descrição                                            | Spec     | Impl     |
-| ------ | -------------------------- | ---------------------------------------------------- | -------- | -------- |
-| M0     | `M0-fundacao.md`           | Fundação, `packages/core`, WootUI, seed              | [x] done | [x] done |
-| M1     | `M1-auth-accounts.md`      | Auth, contas, usuários, roles                        | [x] done | [x] done |
-| M2     | `M2-inboxes-channels.md`   | Inboxes, canais, horário comercial                   | [x] done | [x] done |
-| M3     | `M3-contacts.md`           | Contatos, labels, atributos custom, import           | [x] done | [x] done |
-| M4     | `M4-conversations.md`      | Conversas, mensagens, realtime                       | [x] done | [x] done |
-| M5     | `M5-widget.md`             | Widget website + Channel API                         | [x] done | [x] done |
-| M6     | `M6-automation.md`         | Teams, canned, macros, automações, webhooks          | [x] done | [x] done |
-| M7     | `M7-campaigns.md`          | Campanhas ongoing + one-off                          | [x] done | [x] done |
-| M8     | `M8-reports.md`            | Relatórios + CSAT                                    | [x] done | [x] done |
-| M9     | `M9-helpcenter.md`         | Central de ajuda / portais públicos                  | [x] done | [x] done |
-| M10    | `M10-external-channels.md` | WhatsApp, Meta, Telegram, Email, SMS, Line, Voice    | [x] done | [x] done |
-| M11    | `M11-notifications.md`     | Notificações, presença, busca global, filtros salvos | [x] done | [x] done |
-| M12    | `M12-polish.md`            | Superadmin, auditoria, AgentBots, QA 1:1             | [x] done | [x] done |
+| Módulo | Spec                      | Descrição                                                     | Spec     | Impl     |
+| ------ | ------------------------- | ------------------------------------------------------------- | -------- | -------- |
+| D0     | `D0-inventario-diff.md`   | Pinar versão, inventário 98 tabelas + harness de diff         | [x] done | [ ] todo |
+| D1     | `D1-tabelas-faltantes.md` | Criar as ~36 tabelas faltantes (nomes Rails exatos)           | [x] done | [ ] todo |
+| D2     | `D2-colunas-tipos.md`     | Paridade coluna-a-coluna: tipos, defaults, null, índices, FKs | [x] done | [ ] todo |
+| D3     | `D3-import-chatwoot.md`   | Import: dump do Chatwoot original → nosso banco               | [x] done | [ ] todo |
+| D4     | `D4-export-chatwoot.md`   | Export: nosso banco → dump que o Rails aceita                 | [x] done | [ ] todo |
+| D5     | `D5-conformidade.md`      | CI anti-drift + política de upgrade do Chatwoot               | [x] done | [ ] todo |
 
 ## Ordem de execução
 
 ```
-M0 → M1 → (M2 + M3 em paralelo) → M4 → M5 → M6 → (M7 + M8 + M9 em paralelo) → M10 → M11 → M12
+D0 → D1 → D2 → (D3 + D4 em paralelo) → D5
 ```
+
+D3 e D4 só começam com D2 com aceite verde na tabela-alvo do teste
+(pelo menos `accounts, users, inboxes, contacts, conversations, messages`).
+D5 fecha a trilha e vira guarda permanente: nenhum PR futuro pode вводить
+drift de schema sem atualizar o pino e os artefatos de diff.
+
+## Definição de "100% compatível com dump"
+
+1. **Mesmo DDL lógico:** mesmos nomes de tabela/coluna/índice/constraint,
+   mesmos tipos Postgres (`bigint` vs `integer`, `timestamp` vs `timestamptz`,
+   `uuid`, `jsonb`), mesmos defaults (`gen_random_uuid()`, `CURRENT_TIMESTAMP`,
+   `{}`), mesma nulabilidade, mesmas PKs/sequências/FKs e mesmas extensões
+   (`pgcrypto, pg_trgm, pg_stat_statements, vector, plpgsql`).
+2. **Import (D3):** `pg_dump --schema-only` do Chatwoot v4 pinado aplica no nosso
+   banco sem erro; `pg_dump --data-only` do Chatwoot restaura (tabelas de
+   domínio) sem violação de constraint; app continua subindo e lendo os dados.
+3. **Export (D4):** nosso `pg_dump` restaura num Postgres vazio onde
+   `bin/rails db:migrate` do Chatwoot pinado roda com **zero migrations
+   pendentes** e o Rails sobe lendo os dados.
+4. **Exceções declaradas:** só o que D0 listar explicitamente
+   (ex.: tabelas de infra que não carregam dado de domínio) — tudo o mais
+   deve ser idêntico. Nenhuma tabela/coluna "extra nossa" sem registro em D5.
 
 ## Formato de cada spec
 
-1. **Objetivo** — o que o módulo entrega
-2. **Referência Chatwoot** — arquivos exatos em `./chatwoot/` para copiar comportamento
-3. **DB** — tabelas Drizzle (nomes/colunas iguais ao `schema.rb`)
-4. **API** — endpoints Hono + schemas Zod (paths iguais ao Rails)
-5. **Front** — rotas TanStack Router + componentes
-6. **Aceite** — checklist testável
-7. **Done** — o que o PR deve conter para ser aceito
+1. **Objetivo** — o que a spec entrega
+2. **Referência Chatwoot** — arquivos exatos em `./chatwoot/`
+3. **Tarefa** — o que implementar (DB-first; app só o mínimo para não regredir)
+4. **Aceite** — checklist testável (comandos copiáveis)
+5. **Done** — o que o PR deve conter

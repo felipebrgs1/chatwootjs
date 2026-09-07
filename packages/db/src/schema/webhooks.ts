@@ -1,4 +1,5 @@
 import {
+  bigserial,
   index,
   integer,
   jsonb,
@@ -39,4 +40,23 @@ export const webhooks = pgTable(
   ],
 );
 
+// D1 — integrações por inbox/conta (Slack, Linear…). Espelha
+// `integrations_hooks` do `chatwoot/db/schema.rb` (integers aqui, sem
+// índices no Rails). Sem FKs em D1 (D2 alinha).
+
+export const integrationsHooks = pgTable("integrations_hooks", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  status: integer("status").default(1),
+  inboxId: integer("inbox_id"),
+  accountId: integer("account_id"),
+  appId: varchar("app_id", { length: 255 }),
+  hookType: integer("hook_type").default(0),
+  referenceId: varchar("reference_id", { length: 255 }),
+  accessToken: varchar("access_token", { length: 255 }),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+  settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
+});
+
 export type Webhook = typeof webhooks.$inferSelect;
+export type IntegrationsHook = typeof integrationsHooks.$inferSelect;

@@ -1,5 +1,10 @@
 export * from "./auth";
+export * from "./active-storage";
+export * from "./calls";
+export * from "./captain";
 export * from "./channels";
+export * from "./copilot";
+export * from "./custom-roles";
 export * from "./inboxes";
 export * from "./inbox-members";
 export * from "./contacts";
@@ -18,3 +23,5 @@ export * from "./portals";
 export * from "./messages";
 export * from "./notifications";
 export * from "./platform";
+export * from "./sla";
+export * from "./tags";

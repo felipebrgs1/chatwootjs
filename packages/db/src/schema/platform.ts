@@ -3,10 +3,13 @@
  * `agent_bot_inboxes`, `email_templates`, `platform_apps` e
  * `platform_banners` do `chatwoot/db/schema.rb` (nomes/colunas iguais).
  *
- * Auditoria usa tabela própria `audit_logs` (o Rails usa `audits` via gem
- * `audited`; nome nosso evita colisão e está documentado na spec M12).
+ * D1: auditoria usa a tabela `audits` (nome Rails, via gem `audited` no
+ * original). As COLUNAS ainda são as nossas (account_id, changes…) para não
+ * quebrar o service — D2 alinha coluna-a-coluna com o Rails.
  */
 import {
+  bigint,
+  bigserial,
   boolean,
   index,
   integer,
@@ -15,6 +18,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -53,8 +57,8 @@ export const agentBotInboxes = pgTable(
   (table) => [index("index_agent_bot_inboxes_on_inbox_id").on(table.inboxId)],
 );
 
-export const auditLogs = pgTable(
-  "audit_logs",
+export const audits = pgTable(
+  "audits",
   {
     id: serial("id").primaryKey(),
     accountId: integer("account_id")
@@ -71,6 +75,33 @@ export const auditLogs = pgTable(
     index("index_audit_logs_on_account_id").on(table.accountId),
     index("index_audit_logs_on_auditable").on(table.auditableType, table.auditableId),
     index("index_audit_logs_on_user_id").on(table.userId),
+  ],
+);
+
+// D1 — vínculo platform_app ↔ entidade permitida. Espelha
+// `platform_app_permissibles` do `chatwoot/db/schema.rb`. Sem FKs (D2).
+
+export const platformAppPermissibles = pgTable(
+  "platform_app_permissibles",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    platformAppId: bigint("platform_app_id", { mode: "number" }).notNull(),
+    permissibleType: varchar("permissible_type", { length: 255 }).notNull(),
+    permissibleId: bigint("permissible_id", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+  },
+  (table) => [
+    index("index_platform_app_permissibles_on_permissibles").on(
+      table.permissibleType,
+      table.permissibleId,
+    ),
+    unique("unique_permissibles_index").on(
+      table.platformAppId,
+      table.permissibleId,
+      table.permissibleType,
+    ),
+    index("index_platform_app_permissibles_on_platform_app_id").on(table.platformAppId),
   ],
 );
 
@@ -111,7 +142,9 @@ export const platformBanners = pgTable("platform_banners", {
 
 export type AgentBot = typeof agentBots.$inferSelect;
 export type AgentBotInbox = typeof agentBotInboxes.$inferSelect;
-export type AuditLog = typeof auditLogs.$inferSelect;
+export type Audit = typeof audits.$inferSelect;
+/** @deprecated D1 renomeou a tabela para `audits`; usar `Audit`. */
+export type AuditLog = Audit;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type PlatformApp = typeof platformApps.$inferSelect;
 export type PlatformBanner = typeof platformBanners.$inferSelect;

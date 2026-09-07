@@ -1,4 +1,6 @@
 import {
+  bigint,
+  bigserial,
   index,
   integer,
   jsonb,
@@ -94,6 +96,41 @@ export const dataImportErrors = pgTable(
   (table) => [index("index_data_import_errors_on_data_import_id").on(table.dataImportId)],
 );
 
+// D1 — mapeamento origem→destino de imports externos. Espelha
+// `data_import_mappings` do `chatwoot/db/schema.rb` (account_id é integer
+// no Rails aqui, diferente do bigint dominante — respeitado). Sem FKs (D2).
+
+export const dataImportMappings = pgTable(
+  "data_import_mappings",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: integer("account_id").notNull(),
+    dataImportId: bigint("data_import_id", { mode: "number" }).notNull(),
+    sourceProvider: varchar("source_provider", { length: 255 }).notNull(),
+    sourceObjectType: varchar("source_object_type", { length: 255 }).notNull(),
+    sourceObjectId: varchar("source_object_id", { length: 255 }).notNull(),
+    chatwootRecordType: varchar("chatwoot_record_type", { length: 255 }).notNull(),
+    chatwootRecordId: bigint("chatwoot_record_id", { mode: "number" }).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+  },
+  (table) => [
+    unique("idx_data_import_mappings_on_account_and_source").on(
+      table.accountId,
+      table.sourceProvider,
+      table.sourceObjectType,
+      table.sourceObjectId,
+    ),
+    index("idx_data_import_mappings_on_record").on(
+      table.chatwootRecordType,
+      table.chatwootRecordId,
+    ),
+    index("index_data_import_mappings_on_data_import_id").on(table.dataImportId),
+  ],
+);
+
 export type DataImport = typeof dataImports.$inferSelect;
 export type DataImportItem = typeof dataImportItems.$inferSelect;
 export type DataImportError = typeof dataImportErrors.$inferSelect;
+export type DataImportMapping = typeof dataImportMappings.$inferSelect;

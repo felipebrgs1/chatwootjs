@@ -1,4 +1,5 @@
 import {
+  bigserial,
   boolean,
   index,
   integer,
@@ -202,6 +203,61 @@ export const channelLines = pgTable("channel_line", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// D1 — TikTok e Twilio SMS. Espelha `chatwoot/db/schema.rb`
+// (channel_tiktok, channel_twilio_sms). Sem FKs em D1 (D2 alinha).
+
+export const channelTiktok = pgTable(
+  "channel_tiktok",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: integer("account_id").notNull(),
+    businessId: varchar("business_id", { length: 255 }).notNull(),
+    accessToken: varchar("access_token", { length: 255 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: false }).notNull(),
+    refreshToken: varchar("refresh_token", { length: 255 }).notNull(),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+      withTimezone: false,
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+  },
+  (table) => [unique("index_channel_tiktok_on_business_id").on(table.businessId)],
+);
+
+export const channelTwilioSms = pgTable(
+  "channel_twilio_sms",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    phoneNumber: varchar("phone_number", { length: 255 }),
+    authToken: varchar("auth_token", { length: 255 }).notNull(),
+    accountSid: varchar("account_sid", { length: 255 }).notNull(),
+    accountId: integer("account_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+    medium: integer("medium").default(0),
+    messagingServiceSid: varchar("messaging_service_sid", { length: 255 }),
+    apiKeySid: varchar("api_key_sid", { length: 255 }),
+    contentTemplates: jsonb("content_templates").$type<Record<string, unknown>>().default({}),
+    contentTemplatesLastUpdated: timestamp("content_templates_last_updated", {
+      withTimezone: false,
+    }),
+    voiceEnabled: boolean("voice_enabled").notNull().default(false),
+    twimlAppSid: varchar("twiml_app_sid", { length: 255 }),
+    apiKeySecret: varchar("api_key_secret", { length: 255 }),
+    providerConfig: jsonb("provider_config").$type<Record<string, unknown>>().default({}),
+  },
+  (table) => [
+    unique("index_channel_twilio_sms_on_account_sid_and_phone_number").on(
+      table.accountSid,
+      table.phoneNumber,
+    ),
+    unique("index_channel_twilio_sms_on_messaging_service_sid").on(table.messagingServiceSid),
+    unique("index_channel_twilio_sms_on_phone_number").on(table.phoneNumber),
+  ],
+);
+
 export type ChannelWebWidget = typeof channelWebWidgets.$inferSelect;
 export type ChannelApiRow = typeof channelApi.$inferSelect;
 export type ChannelEmailRow = typeof channelEmail.$inferSelect;
+export type ChannelTiktok = typeof channelTiktok.$inferSelect;
+export type ChannelTwilioSms = typeof channelTwilioSms.$inferSelect;

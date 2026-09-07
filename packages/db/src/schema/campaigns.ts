@@ -1,4 +1,6 @@
 import {
+  bigint,
+  bigserial,
   boolean,
   index,
   integer,
@@ -7,6 +9,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -55,4 +58,48 @@ export const campaigns = pgTable(
   ],
 );
 
+// D1 — destinatários de campanha (bulk). Espelha `campaign_recipients` do
+// `chatwoot/db/schema.rb`. Em PG o unique simples equivale ao parcial do
+// Rails (WHERE source_id IS NOT NULL), pois NULLs não conflitam.
+
+export const campaignRecipients = pgTable(
+  "campaign_recipients",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    accountId: bigint("account_id", { mode: "number" }).notNull(),
+    campaignId: bigint("campaign_id", { mode: "number" }).notNull(),
+    contactId: bigint("contact_id", { mode: "number" }).notNull(),
+    inboxId: bigint("inbox_id", { mode: "number" }).notNull(),
+    sourceId: varchar("source_id", { length: 255 }),
+    status: integer("status").notNull().default(0),
+    errorCode: varchar("error_code", { length: 255 }),
+    errorTitle: varchar("error_title", { length: 255 }),
+    errorMessage: text("error_message"),
+    messageContent: text("message_content"),
+    sentAt: timestamp("sent_at", { withTimezone: false }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: false }),
+    readAt: timestamp("read_at", { withTimezone: false }),
+    failedAt: timestamp("failed_at", { withTimezone: false }),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+  },
+  (table) => [
+    index("index_campaign_recipients_on_account_id_and_campaign_id").on(
+      table.accountId,
+      table.campaignId,
+    ),
+    index("index_campaign_recipients_on_account_id").on(table.accountId),
+    unique("index_campaign_recipients_on_campaign_id_and_contact_id").on(
+      table.campaignId,
+      table.contactId,
+    ),
+    index("index_campaign_recipients_on_campaign_id_and_status").on(table.campaignId, table.status),
+    index("index_campaign_recipients_on_campaign_id").on(table.campaignId),
+    index("index_campaign_recipients_on_contact_id").on(table.contactId),
+    index("index_campaign_recipients_on_inbox_id").on(table.inboxId),
+    unique("index_campaign_recipients_on_source_id").on(table.sourceId),
+  ],
+);
+
 export type Campaign = typeof campaigns.$inferSelect;
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;

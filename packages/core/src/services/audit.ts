@@ -1,10 +1,11 @@
 /**
- * M12 — Trilha de auditoria (`audit_logs`, tabela própria — ver M12).
+ * Trilha de auditoria (tabela `audits`, nome Rails — D1; colunas ainda
+ * nossas, D2 alinha com o Rails).
  *
  * `logAudit` nunca quebra o fluxo chamador (try/catch interno) e é
  * fire-and-forget (`void`) nas rotas/services. Leitura só para admin.
  */
-import { auditLogs, db } from "@chatwootjs/db";
+import { audits, db } from "@chatwootjs/db";
 import { and, count, desc, eq } from "drizzle-orm";
 
 import { requireAdmin, type AuthCtx } from "../policies/index.js";
@@ -21,7 +22,7 @@ export async function logAudit(
   changes: Record<string, unknown> = {},
 ): Promise<void> {
   try {
-    await db.insert(auditLogs).values({
+    await db.insert(audits).values({
       accountId,
       userId,
       action,
@@ -50,15 +51,15 @@ export async function listAuditLogs(
   query: AuditLogsQuery,
 ): Promise<{ audit_logs: ApiAuditLog[]; meta: { page: number; total: number } }> {
   requireAdmin(auth);
-  const conditions = [eq(auditLogs.accountId, accountId)];
-  if (query.user_id) conditions.push(eq(auditLogs.userId, query.user_id));
-  if (query.auditable_type) conditions.push(eq(auditLogs.auditableType, query.auditable_type));
-  if (query.action) conditions.push(eq(auditLogs.action, query.action));
+  const conditions = [eq(audits.accountId, accountId)];
+  if (query.user_id) conditions.push(eq(audits.userId, query.user_id));
+  if (query.auditable_type) conditions.push(eq(audits.auditableType, query.auditable_type));
+  if (query.action) conditions.push(eq(audits.action, query.action));
   const where = and(...conditions);
 
-  const totalRows = await db.select({ total: count() }).from(auditLogs).where(where);
+  const totalRows = await db.select({ total: count() }).from(audits).where(where);
   const limit = 25;
-  const rows = await db.query.auditLogs.findMany({
+  const rows = await db.query.audits.findMany({
     where,
     orderBy: (a) => desc(a.createdAt),
     limit,

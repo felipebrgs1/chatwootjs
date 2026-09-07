@@ -1,4 +1,6 @@
 import {
+  bigint,
+  bigserial,
   boolean,
   index,
   integer,
@@ -113,7 +115,46 @@ export const articles = pgTable(
   ],
 );
 
+// D1 — membros de portal (join table SEM id, como no Rails) + categorias
+// relacionadas. Espelha `chatwoot/db/schema.rb`. Sem FKs em D1 (D2 alinha).
+
+export const portalsMembers = pgTable(
+  "portals_members",
+  {
+    portalId: bigint("portal_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    unique("index_portals_members_on_portal_id_and_user_id").on(table.portalId, table.userId),
+    index("index_portals_members_on_portal_id").on(table.portalId),
+    index("index_portals_members_on_user_id").on(table.userId),
+  ],
+);
+
+export const relatedCategories = pgTable(
+  "related_categories",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    categoryId: bigint("category_id", { mode: "number" }),
+    relatedCategoryId: bigint("related_category_id", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: false }).notNull(),
+  },
+  (table) => [
+    unique("index_related_categories_on_category_id_and_related_category_id").on(
+      table.categoryId,
+      table.relatedCategoryId,
+    ),
+    unique("index_related_categories_on_related_category_id_and_category_id").on(
+      table.relatedCategoryId,
+      table.categoryId,
+    ),
+  ],
+);
+
 export type Portal = typeof portals.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Folder = typeof folders.$inferSelect;
 export type Article = typeof articles.$inferSelect;
+export type PortalsMember = typeof portalsMembers.$inferSelect;
+export type RelatedCategory = typeof relatedCategories.$inferSelect;

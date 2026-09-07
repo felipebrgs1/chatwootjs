@@ -104,7 +104,9 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:18
+    # pgvector: o pino Rails (D0) exige a extensão `vector`
+    # (article_embeddings, captain_*). Mesma major do original.
+    image: pgvector/pgvector:pg18
     container_name: chatwootjs-postgres
     environment:
       POSTGRES_DB: chatwootjs

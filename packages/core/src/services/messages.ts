@@ -178,6 +178,12 @@ export async function sendAgentMessage(
 
   const api = { ...(await toApiMessage(row)), echo_id: input.echo_id };
   publish(accountId, "message.created", { ...api, conversation_id: conv.id });
+  // M10: mensagens públicas saem para a plataforma externa (fire-and-forget).
+  if (!input.private) {
+    void import("../channels/outbound.js")
+      .then((m) => m.dispatchChannelSend(accountId, conv.id, row.id))
+      .catch((err) => console.error("[channel:send] dispatch falhou", err));
+  }
   publish(
     accountId,
     "conversation.updated",

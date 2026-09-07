@@ -367,6 +367,46 @@ export {
   webhookPayload,
 } from "./services/webhooks.js";
 export type { ApiWebhook } from "./services/webhooks.js";
+export {
+  CHANNEL_TYPE_TO_EXTERNAL,
+  dispatchChannelSend,
+  findInboxByChannel,
+  ingestInbound,
+  loadChannelContext,
+  parseEvolutionWebhook,
+  parseFacebookWebhook,
+  parseInboundEmail,
+  parseInstagramWebhook,
+  parseLineWebhook,
+  parseTelegramUpdate,
+  parseTwilioSms,
+  parseTwitterWebhook,
+  parseVoiceWebhook,
+  parseWhatsappWebhook,
+  PROVIDERS,
+  providerFor,
+  registerChannelSendJob,
+  registerEmailPollerJob,
+} from "./channels/index.js";
+export type {
+  ChannelProvider,
+  EvolutionWebhook,
+  ExternalChannel,
+  IngestResult,
+  InboundEmail,
+  LineWebhook,
+  MetaWebhook,
+  NormalizedAttachment,
+  NormalizedInbound,
+  OutboundContext,
+  OutboundMessage,
+  SendResult,
+  TelegramUpdate,
+  TwilioSmsPayload,
+  TwitterWebhook,
+  VoiceWebhook,
+  WhatsappWebhook,
+} from "./channels/index.js";
 export { activeJobRunner, initJobs } from "./jobs/index.js";
 export { registerAutomationListeners } from "./jobs/automation.js";
 export {

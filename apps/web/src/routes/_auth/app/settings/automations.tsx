@@ -244,97 +244,109 @@ function AutomationsSettings() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-woot-slate-11">
-                    <th className="px-4 py-2.5 font-medium">Nome</th>
-                    <th className="px-4 py-2.5 font-medium">Ativa</th>
-                    <th className="px-4 py-2.5 font-medium">Criada em</th>
-                    {isAdmin && <th className="px-4 py-2.5 text-right font-medium">Ações</th>}
+                    <th className="w-full px-4 py-2.5 font-medium">Nome</th>
+                    <th className="whitespace-nowrap px-4 py-2.5 font-medium">Ativa</th>
+                    <th className="whitespace-nowrap px-4 py-2.5 font-medium">Criada em</th>
+                    {isAdmin && (
+                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+                        Ações
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((rule) => (
-                    <tr
-                      key={rule.id}
-                      className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
-                    >
-                      <td className="max-w-0 px-4 py-2.5">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-woot-slate-12">{rule.name}</span>
-                          {rule.execution_delay ? (
-                            <span className="flex-shrink-0 whitespace-nowrap rounded-md bg-woot-slate-3 px-1.5 py-0.5 text-xs text-woot-slate-11">
-                              Espera {formatDelay(rule.execution_delay)}
-                            </span>
-                          ) : null}
-                          <span className="h-3 w-px flex-shrink-0 rounded-lg bg-border" />
-                          <span className="truncate text-woot-slate-11">
-                            {rule.description || EVENT_LABELS[rule.event_name] || rule.event_name}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={rule.active}
-                          aria-label={`${rule.active ? "Pausar" : "Ativar"} ${rule.name}`}
-                          disabled={!isAdmin || busyId === rule.id}
-                          onClick={() => setToggling(rule)}
-                          className={cn(
-                            "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-                            rule.active ? "bg-woot-blue" : "bg-woot-slate-3",
-                            "disabled:cursor-not-allowed disabled:opacity-60",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "absolute top-0.5 size-4 rounded-full bg-white shadow transition-all",
-                              rule.active ? "left-[18px]" : "left-0.5",
-                            )}
-                          />
-                        </button>
-                      </td>
-                      <td
-                        title={new Date(rule.created_at).toLocaleString("pt-BR")}
-                        className="whitespace-nowrap px-4 py-2.5 text-woot-slate-12"
+                  {visible.map((rule) => {
+                    const desc =
+                      rule.description || EVENT_LABELS[rule.event_name] || rule.event_name;
+                    return (
+                      <tr
+                        key={rule.id}
+                        className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
                       >
-                        {readableDate(rule.created_at)}
-                      </td>
-                      {isAdmin && (
-                        <td className="px-4 py-2.5">
-                          <span className="flex flex-shrink-0 justify-end gap-3">
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              title="Editar"
-                              aria-label={`Editar ${rule.name}`}
-                              onClick={() => setEditing(rule)}
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              title="Clonar"
-                              aria-label={`Clonar ${rule.name}`}
-                              disabled={busyId === rule.id}
-                              onClick={() => void clone(rule)}
-                            >
-                              <Copy className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              title="Excluir"
-                              aria-label={`Excluir ${rule.name}`}
-                              onClick={() => setDeleting(rule)}
-                              className="hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </span>
+                        <td className="w-full max-w-0 px-4 py-2.5">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate font-medium text-woot-slate-12">
+                              {rule.name}
+                            </span>
+                            {rule.execution_delay ? (
+                              <span className="flex-shrink-0 whitespace-nowrap rounded-md bg-woot-slate-3 px-1.5 py-0.5 text-xs text-woot-slate-11">
+                                Espera {formatDelay(rule.execution_delay)}
+                              </span>
+                            ) : null}
+                            {desc ? (
+                              <>
+                                <span className="h-3 w-px flex-shrink-0 rounded-lg bg-border" />
+                                <span className="truncate text-woot-slate-11">{desc}</span>
+                              </>
+                            ) : null}
+                          </div>
                         </td>
-                      )}
-                    </tr>
-                  ))}
+                        <td className="whitespace-nowrap px-4 py-2.5">
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={rule.active}
+                            aria-label={`${rule.active ? "Pausar" : "Ativar"} ${rule.name}`}
+                            disabled={!isAdmin || busyId === rule.id}
+                            onClick={() => setToggling(rule)}
+                            className={cn(
+                              "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                              rule.active ? "bg-woot-blue" : "bg-woot-slate-3",
+                              "disabled:cursor-not-allowed disabled:opacity-60",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "absolute top-0.5 size-4 rounded-full bg-white shadow transition-all",
+                                rule.active ? "left-[18px]" : "left-0.5",
+                              )}
+                            />
+                          </button>
+                        </td>
+                        <td
+                          title={new Date(rule.created_at).toLocaleString("pt-BR")}
+                          className="whitespace-nowrap px-4 py-2.5 text-woot-slate-12"
+                        >
+                          {readableDate(rule.created_at)}
+                        </td>
+                        {isAdmin && (
+                          <td className="whitespace-nowrap px-4 py-2.5">
+                            <div className="flex flex-shrink-0 justify-end gap-3">
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Editar"
+                                aria-label={`Editar ${rule.name}`}
+                                onClick={() => setEditing(rule)}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Clonar"
+                                aria-label={`Clonar ${rule.name}`}
+                                disabled={busyId === rule.id}
+                                onClick={() => void clone(rule)}
+                              >
+                                <Copy className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Excluir"
+                                aria-label={`Excluir ${rule.name}`}
+                                onClick={() => setDeleting(rule)}
+                                className="hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

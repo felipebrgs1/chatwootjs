@@ -1,9 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FlaskConical, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { createFileRoute } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@chatwootjs/ui/components/button";
@@ -20,20 +19,38 @@ export const Route = createFileRoute("/_auth/app/settings/webhooks")({
 
 const EVENTS = [
   "conversation_created",
-  "conversation_updated",
   "conversation_status_changed",
+  "conversation_updated",
   "message_created",
   "message_updated",
+  "webwidget_triggered",
   "contact_created",
   "contact_updated",
-  "webwidget_triggered",
   "inbox_created",
   "inbox_updated",
+  "conversation_typing_on",
+  "conversation_typing_off",
 ] as const;
+
+const EVENT_LABELS: Record<string, string> = {
+  conversation_created: "Conversa criada",
+  conversation_status_changed: "Status da conversa alterado",
+  conversation_updated: "Conversa atualizada",
+  message_created: "Mensagem criada",
+  message_updated: "Mensagem atualizada",
+  webwidget_triggered: "Widget aberto pelo visitante",
+  contact_created: "Contato criado",
+  contact_updated: "Contato atualizado",
+  inbox_created: "Inbox criada",
+  inbox_updated: "Inbox atualizada",
+  conversation_typing_on: "Começou a digitar",
+  conversation_typing_off: "Parou de digitar",
+};
 
 const schema = z.object({
   url: z.url("URL inválida"),
   name: z.string().optional(),
+  subscriptions: z.array(z.string()).min(1, "Selecione ao menos um evento"),
 });
 
 type Values = z.infer<typeof schema>;
@@ -45,16 +62,20 @@ interface Webhook {
   subscriptions: string[];
 }
 
+/**
+ * Configurações · Webhooks 1:1 com settings/integrations/Webhooks/Index do
+ * v4: header com busca + contador + botão, tabela Endpoint/Ações e modais de
+ * adicionar/editar/excluir.
+ */
 function WebhooksSettings() {
   const { session } = useSessionContext();
   const [items, setItems] = useState<Webhook[] | null>(null);
-  const [subs, setSubs] = useState<string[]>(["conversation_created", "message_created"]);
-  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Webhook | null>(null);
+  const [deleting, setDeleting] = useState<Webhook | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const isAdmin = session?.account.role === "administrator";
-  const form = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: { url: "", name: "" },
-  });
 
   async function refresh(): Promise<void> {
     const d = await apiFetch<{ webhooks: Webhook[] }>(
@@ -64,155 +85,352 @@ function WebhooksSettings() {
   }
 
   useEffect(() => {
-    if (session) void refresh();
+    if (session) void refresh().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  function toggleSub(event: string): void {
-    setSubs((prev) => (prev.includes(event) ? prev.filter((s) => s !== event) : [...prev, event]));
-  }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items ?? [];
+    return (items ?? []).filter(
+      (w) => (w.name ?? "").toLowerCase().includes(q) || (w.url ?? "").toLowerCase().includes(q),
+    );
+  }, [items, query]);
 
-  async function onSubmit(values: Values): Promise<void> {
-    setError(null);
-    if (subs.length === 0) {
-      setError("Selecione ao menos um evento");
-      return;
-    }
-    try {
-      await apiFetch(`/api/v1/accounts/${session!.accountId}/webhooks`, {
-        method: "POST",
-        body: JSON.stringify({
-          url: values.url,
-          name: values.name || undefined,
-          subscriptions: subs,
-        }),
-      });
-      form.reset({ url: "", name: "" });
-      await refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erro inesperado");
-    }
-  }
+  if (!session) return null;
 
-  async function test(id: number): Promise<void> {
-    try {
-      const d = await apiFetch<{ ok: boolean; status?: number }>(
-        `/api/v1/accounts/${session!.accountId}/webhooks/${id}/test`,
-        { method: "POST" },
-      );
-      if (d.ok) toast.success(`Webhook respondeu ${d.status ?? 200}`);
-      else toast.error(`Webhook falhou${d.status ? ` (${d.status})` : ""}`);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Falha no teste");
-    }
-  }
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-woot-bg">
+      <header className="shrink-0 px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 py-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h1 className="text-xl font-medium text-woot-slate-12">Webhooks</h1>
+                {(items?.length ?? 0) > 0 && (
+                  <span className="text-sm text-woot-slate-11">
+                    {items!.length} {items!.length === 1 ? "webhook" : "webhooks"}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-woot-slate-11">
+                Receba eventos da conta via HTTP.{" "}
+                <a
+                  href="https://www.chatwoot.com/hc/user-guide/en/collections/6540915"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-woot-blue hover:underline"
+                >
+                  Saiba mais sobre webhooks
+                </a>
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-woot-slate-11" />
+                <Input
+                  type="search"
+                  placeholder="Buscar webhooks..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="h-8 w-56 pl-8"
+                />
+              </div>
+              {isAdmin && (
+                <Button size="sm" onClick={() => setAdding(true)} className="gap-2">
+                  <Plus className="size-4" /> Adicionar webhook
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
 
-  async function remove(id: number): Promise<void> {
-    await apiFetch(`/api/v1/accounts/${session!.accountId}/webhooks/${id}`, {
-      method: "DELETE",
-    });
-    await refresh();
+      <main className="min-h-0 flex-1 overflow-y-auto px-6">
+        <div className="mx-auto w-full max-w-5xl pb-6">
+          {items === null ? (
+            <p className="py-10 text-center text-sm text-woot-slate-11">Carregando...</p>
+          ) : filtered.length === 0 ? (
+            <p className="py-10 text-center text-sm text-woot-slate-11">
+              {query ? "Nenhum webhook para essa busca." : "Nenhum webhook nesta conta."}
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-woot-slate-11">
+                    <th className="px-4 py-2.5 font-medium">Endpoint do webhook</th>
+                    {isAdmin && <th className="w-24 px-4 py-2.5 text-right font-medium">Ações</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((hook, index) => (
+                    <WebhookRow
+                      key={hook.id}
+                      webhook={hook}
+                      index={index}
+                      isAdmin={isAdmin}
+                      busy={busyId === hook.id}
+                      onEdit={() => setEditing(hook)}
+                      onDelete={() => setDeleting(hook)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {adding && (
+        <WebhookDialog
+          accountId={session.accountId}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            void refresh();
+          }}
+        />
+      )}
+      {editing && (
+        <WebhookDialog
+          accountId={session.accountId}
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void refresh();
+          }}
+        />
+      )}
+      {deleting && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg">
+            <h2 className="mb-1 text-base font-semibold text-woot-slate-12">Confirmar exclusão</h2>
+            <p className="mb-4 text-sm text-woot-slate-11">
+              Tem certeza que deseja excluir <strong>{deleting.url}</strong>?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setDeleting(null)}>
+                Não, manter {deleting.url}
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={busyId === deleting.id}
+                onClick={() => {
+                  setBusyId(deleting.id);
+                  void apiFetch(`/api/v1/accounts/${session.accountId}/webhooks/${deleting.id}`, {
+                    method: "DELETE",
+                  })
+                    .then(() => {
+                      setDeleting(null);
+                      return refresh();
+                    })
+                    .catch(() => setBusyId(null));
+                }}
+              >
+                Sim, excluir {deleting.url}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Linha do webhook (WebhookRow do v4): nome + URL e eventos inscritos. */
+function WebhookRow({
+  webhook,
+  index,
+  isAdmin,
+  busy,
+  onEdit,
+  onDelete,
+}: {
+  webhook: Webhook;
+  index: number;
+  isAdmin: boolean;
+  busy: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const events = webhook.subscriptions.map((e) => EVENT_LABELS[e] ?? e).join(", ");
+  const long = events.length > 60;
+  return (
+    <tr className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40">
+      <td className="px-4 py-2.5">
+        <p className="flex gap-2 break-words font-medium text-woot-slate-12">
+          {webhook.name && <span>{webhook.name}</span>}
+          <span className={webhook.name ? "font-normal text-woot-slate-11" : ""}>
+            {webhook.url}
+          </span>
+        </p>
+        <p className="mt-1 text-sm text-woot-slate-11">
+          <span className="font-medium">Eventos inscritos: </span>
+          {long && !expanded ? `${events.slice(0, 60)}... ` : `${events} `}
+          {long && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-woot-blue hover:underline"
+            >
+              {expanded ? "ver menos" : "ver mais"}
+            </button>
+          )}
+          <span className="sr-only">linha {index + 1}</span>
+        </p>
+      </td>
+      {isAdmin && (
+        <td className="w-24 px-4 py-2.5">
+          <span className="flex flex-shrink-0 justify-end gap-3">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              title="Editar"
+              aria-label={`Editar ${webhook.url}`}
+              disabled={busy}
+              onClick={onEdit}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              title="Excluir"
+              aria-label={`Excluir ${webhook.url}`}
+              disabled={busy}
+              onClick={onDelete}
+              className="hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </span>
+        </td>
+      )}
+    </tr>
+  );
+}
+
+/** Modal adicionar/editar (NewWebHook/EditWebHook do v4). */
+function WebhookDialog({
+  accountId,
+  initial,
+  onClose,
+  onSaved,
+}: {
+  accountId: number;
+  initial?: Webhook;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      url: initial?.url ?? "",
+      name: initial?.name ?? "",
+      subscriptions: initial?.subscriptions ?? ["conversation_created", "message_created"],
+    },
+  });
+  const [error, setError] = useState<string | null>(null);
+  const subscriptions = useWatch({ control: form.control, name: "subscriptions" });
+
+  function toggle(event: string): void {
+    const current = form.getValues("subscriptions");
+    form.setValue(
+      "subscriptions",
+      current.includes(event) ? current.filter((s) => s !== event) : [...current, event],
+      { shouldValidate: true },
+    );
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-woot-bg">
-      <header className="border-b bg-card px-6 py-4">
-        <h1 className="text-lg font-semibold">Configurações · Webhooks</h1>
-        <p className="text-sm text-muted-foreground">
-          POST em JSON (<code className="rounded bg-muted px-1">event, data, account_id</code>) a
-          cada evento inscrito, com retry automático.
-        </p>
-      </header>
-      <main className="grid max-w-2xl content-start gap-4 p-6">
-        {isAdmin && (
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-3 rounded-lg border bg-card p-4"
-          >
-            <h2 className="text-sm font-medium">Novo webhook</h2>
-            <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
-              <div className="grid gap-1.5">
-                <Label htmlFor="url">URL</Label>
-                <Input id="url" {...form.register("url")} placeholder="https://..." />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" {...form.register("name")} placeholder="n8n" />
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Eventos</Label>
-              <div className="flex flex-wrap gap-2">
-                {EVENTS.map((event) => (
-                  <label
-                    key={event}
-                    className="flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-                  >
-                    <Checkbox
-                      checked={subs.includes(event)}
-                      onCheckedChange={() => toggleSub(event)}
-                    />
-                    {event}
-                  </label>
-                ))}
-              </div>
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <div>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                Criar
-              </Button>
-            </div>
-          </form>
-        )}
-        <section className="rounded-lg border bg-card">
-          {items === null ? (
-            <p className="p-4 text-sm text-muted-foreground">Carregando...</p>
-          ) : (
-            <ul className="divide-y">
-              {items.map((hook) => (
-                <li key={hook.id} className="flex items-start gap-3 p-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{hook.name || hook.url}</p>
-                    <p className="truncate text-xs text-muted-foreground">{hook.url}</p>
-                    <p className="mt-1 flex flex-wrap gap-1">
-                      {hook.subscriptions.map((s) => (
-                        <span
-                          key={s}
-                          className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </p>
-                  </div>
-                  {isAdmin && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => void test(hook.id)}
-                      >
-                        <FlaskConical className="size-3.5" />
-                        Testar
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Remover ${hook.url}`}
-                        onClick={() => void remove(hook.id)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </>
-                  )}
-                </li>
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4">
+      <div className="my-8 w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-lg">
+        <h2 className="mb-1 text-base font-semibold text-woot-slate-12">
+          {initial ? "Editar webhook" : "Adicionar webhook"}
+        </h2>
+        <p className="mb-3 text-sm text-woot-slate-11">Chamamos essa URL a cada evento inscrito.</p>
+        <form
+          onSubmit={form.handleSubmit(async (values) => {
+            setError(null);
+            try {
+              const body = JSON.stringify({
+                url: values.url,
+                name: values.name || undefined,
+                subscriptions: values.subscriptions,
+              });
+              if (initial) {
+                await apiFetch(`/api/v1/accounts/${accountId}/webhooks/${initial.id}`, {
+                  method: "PATCH",
+                  body,
+                });
+              } else {
+                await apiFetch(`/api/v1/accounts/${accountId}/webhooks`, {
+                  method: "POST",
+                  body,
+                });
+              }
+              onSaved();
+            } catch (err) {
+              setError(
+                err instanceof ApiError
+                  ? (Object.values(err.attributes ?? {})[0]?.[0] ?? err.message)
+                  : "Erro inesperado",
+              );
+            }
+          })}
+          className="grid gap-3"
+        >
+          <div className="grid gap-1.5">
+            <Label htmlFor="hook-url">URL</Label>
+            <Input
+              id="hook-url"
+              {...form.register("url")}
+              placeholder="https://minha-api.test/hook"
+            />
+            {form.formState.errors.url && (
+              <p className="text-xs text-destructive">{form.formState.errors.url.message}</p>
+            )}
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="hook-name">Nome (opcional)</Label>
+            <Input id="hook-name" {...form.register("name")} placeholder="n8n" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Eventos inscritos</Label>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {EVENTS.map((event) => (
+                <label
+                  key={event}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-woot-slate-12"
+                >
+                  <Checkbox
+                    checked={subscriptions.includes(event)}
+                    onCheckedChange={() => toggle(event)}
+                  />
+                  {EVENT_LABELS[event] ?? event}
+                </label>
               ))}
-            </ul>
-          )}
-        </section>
-      </main>
+            </div>
+            {form.formState.errors.subscriptions && (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.subscriptions.message}
+              </p>
+            )}
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {initial ? "Salvar" : "Criar"}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

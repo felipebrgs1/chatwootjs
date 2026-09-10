@@ -462,6 +462,41 @@ const weighted = apiActive.reduce(
 );
 const apiWeightedPct = pct(weighted.covered, weighted.total);
 
+// ---------- recorte por módulo do roadmap (roadmap.md) ----------
+const ROADMAP_MODULES = [
+  { id: "01", name: "Dashboard", api: [] },
+  { id: "02", name: "Conversas & Mensagens", api: ["conversations"] },
+  { id: "03", name: "Contatos & Empresas", api: ["contacts"] },
+  { id: "04", name: "Inboxes & Canais", api: ["inboxes", "whatsapp"] },
+  { id: "05", name: "Atribuição, Times & Agentes", api: ["agents", "teams", "assignment"] },
+  { id: "06", name: "Automação, Macros, Canned & Webhooks", api: ["automation", "macros", "canned", "labels", "webhooks"] },
+  { id: "07", name: "Relatórios & CSAT", api: ["reports_v2", "csat"] },
+  { id: "08", name: "Help Center", api: ["helpcenter"] },
+  { id: "09", name: "Widget & API Pública", api: ["widget", "public_inbox"] },
+  { id: "10", name: "Integrações & Apps", api: ["integrations", "oauth_authorizations"] },
+  { id: "11", name: "Notificações, Busca & Comandos", api: ["notifications", "search"] },
+  { id: "12", name: "Auth, Conta & Segurança", api: ["auth", "perfil", "accounts"] },
+  { id: "13", name: "Superadmin, Platform & Onboarding", api: ["superadmin", "platform", "onboarding"] },
+  { id: "14", name: "E-mail, Jobs & Realtime", api: [] },
+  { id: "15", name: "Captain & IA", api: ["captain"] },
+];
+
+const moduleReport = ROADMAP_MODULES.map((mod) => {
+  const areas = mod.api.map((name) => apiReport.find((a) => a.area === name)).filter(Boolean);
+  const covered = areas.filter((a) => a.covered).length;
+  const actions = areas.reduce((s, a) => s + a.actions, 0);
+  const hits = areas.reduce((s, a) => s + Math.min(a.actions, a.hits.length), 0);
+  return {
+    id: mod.id,
+    name: mod.name,
+    areas: areas.map((a) => ({ area: a.area, covered: a.covered, actions: a.actions, hits: a.hits.length })),
+    covered,
+    total: areas.length,
+    pct: pct(covered, areas.length),
+    weightedPct: pct(hits, actions),
+  };
+});
+
 const report = {
   pin:
     readFileSync(join(ROOT, "docs/specs/CHATWOOT_PIN.md"), "utf8").match(
@@ -492,6 +527,7 @@ const report = {
   missingAreaActions,
   unmapped,
   unmappedWebAreas,
+  modules: moduleReport,
 };
 
 if (AS_JSON) {
@@ -522,6 +558,17 @@ for (const r of webReport) {
 if (unmapped.length > 0) {
   console.log(`\nControllers Rails fora do mapa (${unmapped.length}):`);
   for (const c of unmapped) console.log(`  - ${c.path} (${c.actions} ações)`);
+}
+console.log("\nPor módulo do roadmap (API):");
+for (const m of moduleReport) {
+  if (m.total === 0) {
+    console.log(`  – ${m.id} ${m.name.padEnd(38)} (sem recorte de API / infra)`);
+    continue;
+  }
+  const mark = m.covered === m.total ? "✅" : m.covered === 0 ? "❌" : "🟡";
+  console.log(
+    `  ${mark} ${m.id} ${m.name.padEnd(38)} áreas ${m.covered}/${m.total} · ponderado ${m.weightedPct}%`,
+  );
 }
 console.log(
   `\nÁreas ausentes somam ${missingAreaActions} ações Rails; ${unmatchedRoutes.length} handlers nossos fora do mapa (revisar).`,
@@ -555,6 +602,16 @@ if (WRITE_DOC) {
   lines.push("| --- | :-: |");
   for (const r of webReport) {
     lines.push(`| ${r.area} | ${r.excluded ? "—" : r.covered ? "✅" : "❌"} |`);
+  }
+  lines.push("");
+  lines.push("## Por módulo do roadmap");
+  lines.push("");
+  lines.push("| # | Módulo | Áreas API cobertas | Ponderado por ações |");
+  lines.push("| -: | --- | :-: | ---: |");
+  for (const m of moduleReport) {
+    lines.push(
+      `| ${m.id} | ${m.name} | ${m.total === 0 ? "—" : `${m.covered}/${m.total}`} | ${m.total === 0 ? "—" : `${m.weightedPct}%`} |`,
+    );
   }
   if (unmapped.length > 0) {
     lines.push("");

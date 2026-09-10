@@ -1,17 +1,24 @@
 /**
- * M12 — E2E ponta a ponta (playwright-core, sem runner externo):
- * login → abre conversa → envia mensagem → menciona/assign → resolve →
- * relatório reflete + auditoria registra + sino tem notificação.
+ * R1 — E2E ponta a ponta autoabastecido (não depende do seed estar intocado).
  *
- * Uso: WEB_URL=http://localhost:3002 SERVER_URL=http://localhost:3000
- *      bun scripts/e2e.mjs
+ * Fluxo: login → cria a própria conversa via canal API → confere na lista →
+ * abre na UI → envia mensagem → resolve → relatório → auditoria → assign +
+ * sino do agente → busca global → captain (501 sem flag) → superadmin.
+ *
+ * Idempotente: cada execução cria um contato/conversa novos (`e2e-<runId>`),
+ * então pode rodar 2× seguidas com o mesmo resultado.
+ *
+ * Uso: WEB_URL=http://localhost:3001 SERVER_URL=http://localhost:3000 bun scripts/e2e.mjs
  */
 import { chromium } from "playwright-core";
 
-const CHROME = `${process.env.HOME}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`;
-const WEB = process.env.WEB_URL ?? "http://localhost:3002";
+const CHROME =
+  process.env.CHROME_PATH ??
+  `${process.env.HOME}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`;
+const WEB = process.env.WEB_URL ?? "http://localhost:3001";
 const SERVER = process.env.SERVER_URL ?? "http://localhost:3000";
 
+const runId = Date.now().toString(36);
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok, detail });
@@ -50,19 +57,58 @@ if (!token) {
 const accounts = await api("/api/v1/accounts", { token });
 const accountId = accounts.json?.data?.accounts?.[0]?.id ?? accounts.json?.accounts?.[0]?.id;
 check("lista contas", !!accountId, `account=${accountId}`);
-
-const convs = await api(`/api/v1/accounts/${accountId}/conversations?status=open`, { token });
-const list =
-  convs.json?.data?.data ?? convs.json?.data?.conversations ?? convs.json?.conversations ?? [];
-check("lista conversas abertas", convs.status === 200, `n=${list.length}`);
-const conv = list[0];
-if (!conv) {
-  console.error("sem conversa aberta no seed, abortando");
+if (!accountId) {
+  console.error("sem conta, abortando");
   await browser.close();
   process.exit(1);
 }
 
-// UI: login → thread → envia mensagem → resolve
+// --- Autoabastecimento: cria a conversa de teste pelo canal API ---
+const inboxes = await api(`/api/v1/accounts/${accountId}/inboxes`, { token });
+const inboxList = inboxes.json?.data?.inboxes ?? inboxes.json?.inboxes ?? [];
+const apiInbox = inboxList.find(
+  (i) => i.channel_type === "Channel::Api" || i.channelType === "Channel::Api",
+);
+check("inbox de canal API existe", !!apiInbox, `inboxes=${inboxList.length}`);
+if (!apiInbox) {
+  console.error("sem inbox Channel::Api no seed — rode bun run db:seed");
+  await browser.close();
+  process.exit(1);
+}
+
+const inboundBody = `e2e entrada ${runId}`;
+const created = await api(`/api/v1/accounts/${accountId}/api_channel/conversations`, {
+  method: "POST",
+  token,
+  body: {
+    inbox_id: apiInbox.id,
+    contact: { identifier: `e2e-${runId}`, name: `Contato E2E ${runId}` },
+    message: { content: inboundBody },
+  },
+});
+const conv = created.json?.data?.conversation ?? created.json?.conversation;
+check(
+  "API cria conversa via canal API",
+  [200, 201].includes(created.status) && !!conv?.id,
+  `status=${created.status} id=${conv?.id}`,
+);
+if (!conv?.id) {
+  console.error("não criou conversa, abortando");
+  await browser.close();
+  process.exit(1);
+}
+
+const convs = await api(`/api/v1/accounts/${accountId}/conversations?status=open`, { token });
+const list =
+  convs.json?.data?.data ?? convs.json?.data?.conversations ?? convs.json?.conversations ?? [];
+check(
+  "lista conversas abertas contém a criada",
+  convs.status === 200 && list.some((c) => String(c.id) === String(conv.id)),
+  `n=${list.length}`,
+);
+const convId = conv.id;
+
+// --- UI: login → abre a conversa criada → vê inbound → envia mensagem ---
 await page.goto(`${WEB}/auth/login`);
 await page.getByLabel("E-mail").fill("admin@demo.test");
 await page.getByLabel("Senha").fill("password123");
@@ -70,22 +116,24 @@ await page.getByRole("button", { name: "Entrar" }).click();
 await page.waitForURL("**/app**", { timeout: 15000 });
 check("UI login", true);
 
-await page.goto(`${WEB}/app/conversations/${conv.id}`);
-await page.waitForTimeout(1500);
-const body = `e2e ${Date.now()}`;
+await page.goto(`${WEB}/app/conversations/${convId}`);
+await page.getByText(inboundBody).first().waitFor({ timeout: 15000 });
+check("UI carrega a conversa criada", true, `conv=${convId}`);
+
+const outboundBody = `e2e saída ${runId}`;
 const editor = page.locator("textarea").first();
-await editor.fill(body);
+await editor.fill(outboundBody);
 await editor.press("Enter");
 await page
-  .getByText(body)
+  .getByText(outboundBody)
   .first()
   .waitFor({ timeout: 10000 })
   .catch(() => {});
-const sent = await page.getByText(body).count();
+const sent = await page.getByText(outboundBody).count();
 check("UI envia mensagem", sent > 0, `ocorrências=${sent}`);
 
-// API: resolve a conversa
-const resolved = await api(`/api/v1/accounts/${accountId}/conversations/${conv.id}/toggle_status`, {
+// --- API: resolve a conversa ---
+const resolved = await api(`/api/v1/accounts/${accountId}/conversations/${convId}/toggle_status`, {
   method: "POST",
   token,
   body: { status: "resolved" },
@@ -108,16 +156,17 @@ check(
   `n=${entries.length}`,
 );
 
-// Sino tem notificações? (assign gera; garante via assign ao agente do seed)
+// Assign para o agente → sino realtime (R1: notification_settings default)
 const agents = await api(`/api/v1/accounts/${accountId}/agents`, { token });
-const agentList = agents.json?.data?.agents ?? [];
+const agentList = agents.json?.data?.agents ?? agents.json?.agents ?? [];
 const other = agentList.find((a) => a.email === "agent@demo.test");
 if (other) {
-  await api(`/api/v1/accounts/${accountId}/conversations/${conv.id}/assignments`, {
+  const assign = await api(`/api/v1/accounts/${accountId}/conversations/${convId}/assignments`, {
     method: "POST",
     token,
     body: { assignee_id: other.id },
   });
+  check("API atribui conversa ao agente", assign.status === 200, `status=${assign.status}`);
 }
 const agentLogin = await api("/auth/sign_in", {
   method: "POST",
@@ -133,7 +182,7 @@ check(
 );
 
 // Busca global (M11)
-const search = await api(`/api/v1/accounts/${accountId}/search?q=demo`, { token });
+const search = await api(`/api/v1/accounts/${accountId}/search?q=car`, { token });
 const sdata = search.json?.data ?? {};
 check("API busca global", search.status === 200 && !!sdata.contacts, `status=${search.status}`);
 
@@ -141,7 +190,7 @@ check("API busca global", search.status === 200 && !!sdata.contacts, `status=${s
 const captain = await api(`/api/v1/accounts/${accountId}/captain/assist`, {
   method: "POST",
   token,
-  body: { type: "summarize", conversation_id: conv.id },
+  body: { type: "summarize", conversation_id: convId },
 });
 check("API captain 501 sem flag", captain.status === 501, `status=${captain.status}`);
 

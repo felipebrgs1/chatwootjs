@@ -220,6 +220,21 @@ export interface ApiNotificationSettings {
   muted_flags: string[];
 }
 
+const ALL_NOTIFICATION_TYPES = Object.keys(TYPE_TO_BIT) as NotificationTypeName[];
+
+/**
+ * Rails cria `notification_settings` no vínculo conta/usuário (callback do
+ * AccountUser) com todos os tipos ligados. Chamar em sign_up, convite e
+ * aceite; idempotente (índice único by_account_user).
+ */
+export async function ensureNotificationSettings(accountId: number, userId: number): Promise<void> {
+  const allOn = namesToBits(ALL_NOTIFICATION_TYPES) ?? 0;
+  await db
+    .insert(notificationSettings)
+    .values({ accountId, userId, emailFlags: allOn, pushFlags: allOn })
+    .onConflictDoNothing();
+}
+
 export async function getNotificationSettings(
   accountId: number,
   userId: number,
@@ -227,8 +242,9 @@ export async function getNotificationSettings(
   const row = await db.query.notificationSettings.findFirst({
     where: (s) => and(eq(s.accountId, accountId), eq(s.userId, userId)),
   });
-  const email = bitsToNames(row?.emailFlags ?? null);
-  const push = bitsToNames(row?.pushFlags ?? null);
+  // Linha ausente = default do Rails (tudo ligado), nunca "tudo mutado".
+  const email = row ? bitsToNames(row.emailFlags) : [...ALL_NOTIFICATION_TYPES];
+  const push = row ? bitsToNames(row.pushFlags) : [...ALL_NOTIFICATION_TYPES];
   // Mutado = bits de e-mail E push desligados para o tipo.
   const muted = (Object.keys(TYPE_TO_BIT) as NotificationTypeName[]).filter(
     (t) => !email.includes(t) && !push.includes(t),

@@ -497,6 +497,7 @@ export {
   NOTIFICATION_TYPE_TO_INT,
   createCustomFilter,
   deleteCustomFilter,
+  ensureNotificationSettings,
   extractMentionTokens,
   getNotificationSettings,
   listCustomFilters,

@@ -123,6 +123,8 @@ export async function signUp(
   });
   const membershipAccountId = membership?.accountId;
   if (!membershipAccountId) throw new UnprocessableError("Could not create account membership");
+  const { ensureNotificationSettings } = await import("./notifications.js");
+  await ensureNotificationSettings(membershipAccountId, userId);
   return {
     user: toApiUser(row),
     accountId: membershipAccountId,
@@ -313,6 +315,8 @@ export async function inviteAgent(
     accountId: auth.accountId,
     role: input.role === "administrator" ? 1 : 0,
   });
+  const { ensureNotificationSettings } = await import("./notifications.js");
+  await ensureNotificationSettings(auth.accountId, user.id);
 
   const { token, digest } = opaqueToken();
   await db.insert(accessTokens).values({
@@ -359,6 +363,16 @@ export async function acceptInvitation(
     where: (u, { eq: equals }) => equals(u.id, invitedUserId),
   });
   if (!row) throw new NotFoundError("User not found");
+  // R1: garante settings default também para convites antigos/importados.
+  const memberships = await db.query.accountUsers.findMany({
+    where: (au, { eq: equals }) => equals(au.userId, invitedUserId),
+  });
+  const { ensureNotificationSettings } = await import("./notifications.js");
+  for (const membership of memberships) {
+    if (membership.accountId != null) {
+      await ensureNotificationSettings(membership.accountId, invitedUserId);
+    }
+  }
   return { user: toApiUser(row) };
 }
 
